@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vocabulary</title>
+  <style>
+    /* ---- Theme variables ---- */
+    :root {
+      --bg:        #ffffff;
+      --fg:        #111111;
+      --border:    #333333;
+      --muted:     #f3f3f3;
+      --input-b:   #cccccc;
+      --badge-bg:  #111;
+      --badge-fg:  #fff;
+    }
+    body.dark {
+      --bg:        #1a1a1a;
+      --fg:        #eeeeee;
+      --border:    #888888;
+      --muted:     #2a2a2a;
+      --input-b:   #555555;
+      --badge-bg:  #eeeeee;
+      --badge-fg:  #111111;
+    }
+
+    /* ---- Base ---- */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: sans-serif;
+      font-size: 20px;
+      padding: 14px;
+      max-width: 600px;
+      margin: 0 auto;
+      background: var(--bg);
+      color: var(--fg);
+      transition: background 0.2s, color 0.2s;
+    }
+
+    h3  { font-size: 22px; margin-bottom: 10px; }
+    hr  { margin: 16px 0; border: 1px solid var(--border); }
+
+    /* ---- Buttons ---- */
+    button {
+      padding: 14px 18px;
+      font-size: 20px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--fg);
+      cursor: pointer;
+      min-width: 80px;
+      transition: background 0.15s;
+    }
+    button:active { opacity: 0.7; }
+
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .btn-row button { flex: 1; min-width: 120px; }
+
+    /* ---- Theme toggle — fixed top-right ---- */
+    #themeBtn {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      padding: 8px 14px;
+      font-size: 22px;
+      border-radius: 50px;
+      border: 2px solid var(--border);
+      background: var(--bg);
+      color: var(--fg);
+      cursor: pointer;
+      z-index: 999;
+      min-width: unset;
+    }
+
+    /* ---- Word count badge ---- */
+    #wordCountBadge {
+      display: inline-block;
+      background: var(--badge-bg);
+      color: var(--badge-fg);
+      font-size: 20px;
+      font-weight: bold;
+      padding: 6px 18px;
+      border-radius: 50px;
+    }
+    #wordCountBadge.hidden { display: none; }
+
+    /* ---- Import ---- */
+    input[type="file"] { font-size: 18px; width: 100%; margin-bottom: 10px; }
+    #import-result { color: #2a9d2a; font-weight: bold; margin-top: 8px; font-size: 18px; }
+
+    /* ---- Learn area ---- */
+    #learn-area {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    #word   { font-size: 36px; font-weight: bold; min-height: 50px; }
+    #answer { font-size: 24px; min-height: 40px; }
+
+    /* ---- Debug table ---- */
+    .search-row { display: flex; gap: 8px; margin-bottom: 10px; }
+    .search-row input {
+      flex: 1;
+      padding: 10px;
+      font-size: 18px;
+      border: 2px solid var(--input-b);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--fg);
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: 17px; }
+    th, td { padding: 10px; border: 1px solid var(--input-b); text-align: left; }
+    th { background: var(--muted); }
+
+    #debug-output { margin-top: 10px; white-space: pre-wrap; }
+
+    /* ---- Edit form ---- */
+    #edit-box { padding: 12px; border: 2px solid var(--border); border-radius: 8px; margin-bottom: 12px; }
+    #edit-box label { display: block; margin-bottom: 6px; font-size: 18px; }
+    #edit-box input {
+      width: 100%;
+      padding: 10px;
+      font-size: 18px;
+      border: 2px solid var(--input-b);
+      border-radius: 6px;
+      margin-bottom: 10px;
+      background: var(--bg);
+      color: var(--fg);
+    }
+
+    /* ---- Summary ---- */
+    #finish {
+      font-size: 22px;
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 12px;
+      margin-top: 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== THEME TOGGLE (fixed góc phải) ===== -->
+<button id="themeBtn" onclick="toggleTheme()">☀️</button>
+
+<!-- ===== IMPORT / EXPORT ===== -->
+<h3>Upload JSON từ MySQL</h3>
+<input type="file" id="jsonFile" accept=".json">
+
+<div class="btn-row">
+  <button onclick="importJSON()">Nhập dữ liệu</button>
+  <button onclick="exportJSON()">Xuất JSON</button>
+  <button id="btnToggleDebug" onclick="toggleDebug()">Show DS</button>
+</div>
+
+<div id="import-result"></div>
+
+<hr>
+
+<!-- ===== HỌC TỪ ===== -->
+<div id="learn-area">
+
+  <!-- Badge số từ hôm nay -->
+  <div id="wordCountBadge" class="hidden"></div>
+
+  <div id="word"></div>
+  <div id="answer"></div>
+
+  <div class="btn-row">
+    <button class="learn" onclick="nextWord()">Next</button>
+    <button class="learn" onclick="backWord()">Back</button>
+  </div>
+
+  <div class="btn-row">
+    <button id="btnFinish" onclick="finish()">Finish</button>
+    <button id="btnStart"  onclick="start()" style="display:none">Start</button>
+  </div>
+</div>
+
+<div id="finish"></div>
+<div id="debug-output"></div>
+
+
+<script>
+/* ============================================================
+   THEME
+============================================================ */
+let isDark = false;
+
+function toggleTheme() {
+  isDark = !isDark;
+  document.body.classList.toggle("dark", isDark);
+  document.getElementById("themeBtn").textContent = isDark ? "🌙" : "☀️";
+}
+
+
+/* ============================================================
+   INDEXEDDB
+============================================================ */
+let db;
+
+const dbReq = indexedDB.open("MyDB", 1);
+
+dbReq.onupgradeneeded = e => {
+  const d = e.target.result;
+  if (d.objectStoreNames.contains("words")) return;
+
+  const store = d.createObjectStore("words", { keyPath: "key" });
+  store.createIndex("word",              "word");
+  store.createIndex("type",              "type");
+  store.createIndex("mean",              "mean");
+  store.createIndex("next_reading_time", "next_reading_time");
+};
+
+dbReq.onsuccess = e => {
+  db = e.target.result;
+  takeVocabulary();
+};
+
+dbReq.onerror = () => alert("Lỗi mở IndexedDB");
+
+
+/* ============================================================
+   HELPERS
+============================================================ */
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+};
+
+const getStore = (mode) => db.transaction("words", mode).objectStore("words");
+
+const setEl = (id, html) => document.getElementById(id).innerHTML = html;
+
+const showLearnBtns = (show) =>
+  document.querySelectorAll(".learn").forEach(b => b.style.display = show ? "inline-block" : "none");
+
+function setWordCountBadge(n) {
+  const badge = document.getElementById("wordCountBadge");
+  if (n > 0) {
+    badge.textContent = `📚 ${n} từ hôm nay`;
+    badge.classList.remove("hidden");
+  } else {
+    badge.classList.add("hidden");
+  }
+}
+
+
+/* ============================================================
+   IMPORT JSON
+============================================================ */
+function importJSON() {
+  const file = document.getElementById("jsonFile").files[0];
+  if (!file) return alert("Chọn file trước!");
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data     = JSON.parse(e.target.result);
+      const tableObj = data.find(item => item.type === "table" && item.name === "words");
+      if (!tableObj) return alert("Không tìm thấy bảng words!");
+      saveWords(tableObj.data);
+    } catch { alert("JSON lỗi!"); }
+  };
+  reader.readAsText(file);
+}
+
+function saveWords(words) {
+  exportJSON();     // backup trước khi xóa
+  deleteAllWords(); // xóa cũ
+
+  const tx    = db.transaction("words", "readwrite");
+  const store = tx.objectStore("words");
+  let countUpdate = 0, countInsert = 0;
+
+  words.forEach(w => {
+    if (w.host !== "Long") return;
+
+    const key = `${w.word}|${w.type}|${w.mean}`;
+
+    store.get(key).onsuccess = e => {
+      const existing = e.target.result;
+
+      if (existing) {
+        existing.sum_point_reading = Number(w.sum_point_reading || existing.sum_point_reading || 0);
+        existing.next_reading_time = w.next_reading_time || existing.next_reading_time;
+        store.put(existing);
+        countUpdate++;
+      } else {
+        store.add({
+          key,
+          word:              w.word,
+          type:              w.type,
+          mean:              w.mean,
+          sum_point_reading: Number(w.sum_point_reading || 0),
+          next_reading_time: w.next_reading_time
+        });
+        countInsert++;
+      }
+    };
+  });
+
+  tx.oncomplete = () => {
+    document.getElementById("import-result").innerText =
+      `Cập nhật ${countUpdate} từ, thêm mới ${countInsert} từ thành công!`;
+  };
+  tx.onerror = e => {
+    console.error(e.target.error);
+    alert("Lỗi khi lưu vào IndexedDB!");
+  };
+}
+
+
+/* ============================================================
+   EXPORT JSON
+============================================================ */
+function exportJSON() {
+  const tx = db.transaction("words", "readonly");
+  tx.objectStore("words").getAll().onsuccess = e => {
+    const all = e.target.result;
+    if (!all?.length) return alert("Không có dữ liệu để xuất!");
+
+    const data = all.map(w => ({
+      word:              w.word,
+      type:              w.type,
+      mean:              w.mean,
+      sum_point_reading: w.sum_point_reading,
+      next_reading_time: w.next_reading_time
+    }));
+
+    const a    = document.createElement("a");
+    a.href     = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+    a.download = `words_${today()}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+}
+
+
+/* ============================================================
+   LOAD DANH SÁCH HỌC HÔM NAY
+============================================================ */
+let words = [], count = -1, endCount = 0;
+
+function takeVocabulary() {
+  showLearnBtns(true);
+
+  getStore("readonly").getAll().onsuccess = e => {
+    const todayDate = today();
+    words = e.target.result.filter(w => todayDate >= w.next_reading_time);
+    words.sort((a, b) => a.sum_point_reading - b.sum_point_reading);
+
+    words.forEach(w => { w.Nx_points = 0; w.status = -1; });
+
+    endCount = words.length;
+    count    = -1;
+
+    setWordCountBadge(endCount);
+
+    if (words.length === 0) {
+      setEl("word", "Hôm nay không có bài.");
+      showLearnBtns(false);
+      return;
+    }
+
+    nextWord();
+  };
+}
+
+
+/* ============================================================
+   NEXT / BACK
+============================================================ */
+function nextWord() {
+  count++;
+  if (count >= endCount) {
+    count = endCount;
+    setEl("word",   "Hoàn thành!");
+    setEl("answer", "");
+    return;
+  }
+  showWord();
+}
+
+function backWord() {
+  count = Math.max(0, count - 1);
+  showWord();
+}
+
+
+/* ============================================================
+   HIỂN THỊ TỪ
+============================================================ */
+let revealStep = 0;
+
+function showWord() {
+  revealStep  = 0;
+  const w     = words[count];
+  const color = w.status === 1 ? "green" : w.status === 0 ? "red" : "var(--fg)";
+
+  setEl("word", `
+    <div id="sentence" style="font-size:36px; font-weight:bold; color:${color}">
+      ${w.word}
+    </div>
+    <br>
+    <button onclick="revealAnswer()">Answer</button>
+  `);
+
+  if (w.status === -1) {
+    w.Nx_points = 0;
+    setEl("answer", `<button onclick="markNx()">x N_point</button>`);
+  } else {
+    showFullCard();
+  }
+}
+
+
+/* ============================================================
+   REVEAL → FULL CARD (3 bước bấm)
+============================================================ */
+function revealAnswer() {
+  const w   = words[count];
+  const box = document.getElementById("answer");
+
+  if (revealStep === 0) {
+    box.innerHTML = `<div style="font-size:24px">(${w.type})</div>`;
+    revealStep = 1;
+    return;
+  }
+  if (revealStep === 1) {
+    showFullCard();
+    revealStep = 2;
+    return;
+  }
+
+  // bước 3: ẩn lại
+  box.innerHTML = w.status === -1 ? `<button onclick="markNx()">x N_point</button>` : "";
+  revealStep = 0;
+}
+
+
+/* ============================================================
+   SHOW FULL CARD
+============================================================ */
+function showFullCard() {
+  const w = words[count];
+  setEl("answer", `
+    <div style="font-size:24px; margin-bottom:12px">
+      <b>${w.word}</b> (${w.type}): ${w.mean}
+    </div>
+    <div class="btn-row">
+      <button onclick="mark(1)">✅ Ok</button>
+      <button onclick="mark(0)">❌ Forget</button>
+    </div>
+  `);
+}
+
+
+/* ============================================================
+   MARK
+============================================================ */
+function markNx() {
+  words[count].Nx_points = 1;
+  setEl("answer", "");
+}
+
+function mark(status) {
+  words[count].status = status;
+  revealStep = 0;
+
+  const s = document.getElementById("sentence");
+  if (s) s.style.color = status === 1 ? "green" : "red";
+
+  if (status === 1) nextWord();
+}
+
+
+/* ============================================================
+   START / FINISH
+============================================================ */
+function start() {
+  document.getElementById("btnStart").style.display  = "none";
+  document.getElementById("btnFinish").style.display = "inline-block";
+  setEl("finish", "");
+  takeVocabulary();
+}
+
+function finish() {
+  document.getElementById("btnStart").style.display  = "inline-block";
+  document.getElementById("btnFinish").style.display = "none";
+  saveVocabulary();
+}
+
+
+/* ============================================================
+   LƯU KẾT QUẢ
+============================================================ */
+function saveVocabulary() {
+  if (!words?.length) return alert("Không có dữ liệu để lưu.");
+
+  const finishBox = document.getElementById("finish");
+  finishBox.innerHTML = `<b>Bạn đã hoàn thành readings hôm nay:</b><br><br>`;
+
+  const tx    = db.transaction("words", "readwrite");
+  const store = tx.objectStore("words");
+  const Nx    = 1.5;
+
+  words.forEach(w => {
+    if (w.status !== 0 && w.status !== 1) return;
+
+    let point   = Number(w.sum_point_reading);
+    let newDate = new Date(today());
+
+    if (w.status === 1) {
+      let bonus = 1.3 + Math.round(point / 5.9 * 100) / 100;
+      point += bonus;
+
+      if (w.Nx_points) {
+        point = point < 45
+          ? Math.round(point * Nx * 100) / 100
+          : point + Math.round((point / 6) * Nx * 100) / 100;
+      }
+
+      newDate.setDate(newDate.getDate() + Math.floor(point));
+
+    } else {
+      point = Math.round(point * 2 / 3 * 100) / 100;
+      if (w.Nx_points) point = Math.round(point / Nx * 100) / 100;
+      newDate.setDate(newDate.getDate() + Math.floor(point / 2));
+    }
+
+    store.put({
+      ...w,
+      sum_point_reading: point,
+      next_reading_time: newDate.toISOString().slice(0, 10)
+    });
+
+    finishBox.innerHTML += `
+      <div style="color:${w.status === 1 ? 'green' : 'red'}; margin-bottom:6px">
+        ${w.word} (${w.type}): ${w.mean}
+      </div>
+    `;
+  });
+
+  tx.oncomplete = () => {
+    showLearnBtns(false);
+    setWordCountBadge(0);
+    setEl("word",   "");
+    setEl("answer", "");
+  };
+}
+
+
+/* ============================================================
+   DEBUG — TOGGLE SHOW / HIDE
+============================================================ */
+let debugVisible = false;
+
+function toggleDebug() {
+  debugVisible = !debugVisible;
+  document.getElementById("btnToggleDebug").textContent = debugVisible ? "Hide DS" : "Show DS";
+
+  if (debugVisible) debugShowAll();
+  else              setEl("debug-output", "");
+}
+
+function debugShowAll() {
+  getStore("readonly").getAll().onsuccess = e => {
+    const list = e.target.result;
+
+    let html = `
+      <div class="btn-row">
+        <button onclick="showCreateForm()">+ Tạo mới</button>
+      </div>
+      <div class="search-row">
+        <input id="searchWord" placeholder="Tìm word" oninput="filterTable()">
+        <input id="searchMean" placeholder="Tìm mean" oninput="filterTable()">
+      </div>
+      <div style="overflow-x:auto">
+        <table id="debug-table">
+          <tr>
+            <th>Word</th><th>Type</th><th>Mean</th><th>Point</th><th>Next</th><th>Action</th>
+          </tr>
+    `;
+
+    list.forEach(w => {
+      html += `
+        <tr id="row-${w.key}" class="data-row" data-word="${w.word}" data-mean="${w.mean}">
+          <td>${w.word}</td>
+          <td>${w.type}</td>
+          <td>${w.mean}</td>
+          <td>${w.sum_point_reading}</td>
+          <td>${w.next_reading_time}</td>
+          <td>
+            <button onclick="editWord('${w.key}')">Sửa</button>
+            <button onclick="deleteWord('${w.key}')">Xóa</button>
+          </td>
+        </tr>
+      `;
+    });
+
+    html += "</table></div>";
+    setEl("debug-output", html);
+  };
+}
+
+function filterTable() {
+  const word = document.getElementById("searchWord").value.toLowerCase();
+  const mean = document.getElementById("searchMean").value.toLowerCase();
+
+  document.querySelectorAll("#debug-table tr.data-row").forEach(tr => {
+    const w = tr.dataset.word.toLowerCase();
+    const m = tr.dataset.mean.toLowerCase();
+    tr.style.display = (w.includes(word) && m.includes(mean)) ? "" : "none";
+  });
+}
+
+
+/* ============================================================
+   TẠO MỚI TỪ
+============================================================ */
+function showCreateForm() {
+  document.getElementById("debug-output").insertAdjacentHTML("afterbegin", `
+    <div id="edit-box">
+      <b style="font-size:22px">Tạo mới từ</b>
+      <label>Word: <input id="e_word"></label>
+      <label>Type: <input id="e_type"></label>
+      <label>Mean: <input id="e_mean"></label>
+      <div class="btn-row">
+        <button onclick="saveNewWord()">Lưu</button>
+        <button onclick="debugShowAll()">Hủy</button>
+      </div>
+    </div>
+  `);
+}
+
+function saveNewWord() {
+  const word = document.getElementById("e_word").value.trim();
+  const type = document.getElementById("e_type").value.trim();
+  const mean = document.getElementById("e_mean").value.trim();
+  if (!word || !type || !mean) return alert("Thiếu dữ liệu!");
+
+  const key = `${word}|${type}|${mean}`;
+
+  const tx = db.transaction("words", "readwrite");
+  tx.objectStore("words").add({
+    key, word, type, mean,
+    sum_point_reading: 0,
+    next_reading_time: today()
+  });
+
+  tx.oncomplete = () => { alert("Đã tạo từ!"); takeVocabulary(); debugShowAll(); };
+}
+
+
+/* ============================================================
+   SỬA TỪ
+============================================================ */
+function editWord(key) {
+  getStore("readonly").get(key).onsuccess = e => {
+    const w   = e.target.result;
+    const row = document.getElementById(`row-${key}`);
+
+    row.innerHTML = `
+      <td><input name="e_word_${key}" value="${w.word}" style="width:100%;font-size:18px;padding:6px"></td>
+      <td><input name="e_type_${key}" value="${w.type}" style="width:60px;font-size:18px;padding:6px"></td>
+      <td><input name="e_mean_${key}" value="${w.mean}" style="width:100%;font-size:18px;padding:6px"></td>
+      <td><input name="e_read_${key}" value="${w.sum_point_reading}" style="width:60px;font-size:18px;padding:6px"></td>
+      <td><input name="e_next_${key}" value="${w.next_reading_time}" style="width:110px;font-size:18px;padding:6px"></td>
+      <td>
+        <button onclick="saveEdit('${key}')">Lưu</button>
+        <button onclick="debugShowAll()">Hủy</button>
+      </td>
+    `;
+  };
+}
+
+function saveEdit(oldKey) {
+  const q    = name => document.querySelector(`input[name="${name}"]`).value.trim();
+  const word = q(`e_word_${oldKey}`);
+  const type = q(`e_type_${oldKey}`);
+  const mean = q(`e_mean_${oldKey}`);
+  const read = Number(q(`e_read_${oldKey}`));
+  const next = q(`e_next_${oldKey}`);
+
+  if (!word || !type || !mean)            return alert("Thiếu dữ liệu!");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(next)) return alert("Ngày phải theo định dạng YYYY-MM-DD");
+
+  const newKey = `${word}|${type}|${mean}`;
+  const item   = { key: newKey, word, type, mean, sum_point_reading: read, next_reading_time: next };
+
+  const tx    = db.transaction("words", "readwrite");
+  const store = tx.objectStore("words");
+
+  if (newKey !== oldKey) store.delete(oldKey);
+  store.put(item);
+
+  tx.oncomplete = () => { alert("Đã lưu!"); takeVocabulary(); debugShowAll(); };
+}
+
+
+/* ============================================================
+   XÓA TỪ / XÓA TẤT CẢ
+============================================================ */
+function deleteWord(key) {
+  if (!confirm("Xóa từ này?")) return;
+
+  const tx = db.transaction("words", "readwrite");
+  tx.objectStore("words").delete(key);
+
+  tx.oncomplete = () => { alert("Đã xóa!"); takeVocabulary(); debugShowAll(); };
+  tx.onerror    = () => alert("Không thể xóa!");
+}
+
+function deleteAllWords() {
+  if (!confirm("Xóa toàn bộ dữ liệu? Không thể hoàn tác!")) return;
+
+  const tx = db.transaction("words", "readwrite");
+  tx.objectStore("words").clear().onsuccess = () => {
+    alert("Đã xóa toàn bộ!");
+    takeVocabulary();
+    debugShowAll();
+  };
+}
+</script>
+</body>
+</html>
