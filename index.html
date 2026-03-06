@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
@@ -25,138 +26,159 @@
       --badge-fg:  #111111;
     }
 
-    /* ---- Base ---- */
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+```
+/* ---- Base ---- */
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
-    body {
-      font-family: sans-serif;
-      font-size: 20px;
-      padding: 14px;
-      max-width: 600px;
-      margin: 0 auto;
-      background: var(--bg);
-      color: var(--fg);
-      transition: background 0.2s, color 0.2s;
-    }
+body {
+  font-family: sans-serif;
+  font-size: 20px;
+  padding: 14px;
+  max-width: 600px;
+  margin: 0 auto;
+  background: var(--bg);
+  color: var(--fg);
+  transition: background 0.2s, color 0.2s;
+}
 
-    h3  { font-size: 22px; margin-bottom: 10px; }
-    hr  { margin: 16px 0; border: 1px solid var(--border); }
+h3  { font-size: 22px; margin-bottom: 10px; }
+hr  { margin: 16px 0; border: 1px solid var(--border); }
 
-    /* ---- Buttons ---- */
-    button {
-      padding: 14px 18px;
-      font-size: 20px;
-      border: 2px solid var(--border);
-      border-radius: 8px;
-      background: var(--bg);
-      color: var(--fg);
-      cursor: pointer;
-      min-width: 80px;
-      transition: background 0.15s;
-    }
-    button:active { opacity: 0.7; }
+/* ---- Buttons ---- */
+button {
+  padding: 14px 18px;
+  font-size: 20px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+  min-width: 80px;
+  transition: background 0.15s;
+  /* ngăn double-tap zoom trên mobile */
+  touch-action: manipulation;
+}
+button:active { opacity: 0.7; }
 
-    .btn-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-    .btn-row button { flex: 1; min-width: 120px; }
+/* ---- Word + Answer-btn ngang hàng ---- */
+#word-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+#word-row #sentence {
+  flex: 1;
+  font-size: 36px;
+  font-weight: bold;
+}
+/* Nx căn giữa */
+#answer { text-align: center; }
 
-    /* ---- Theme toggle — fixed top-right ---- */
-    #themeBtn {
-      position: fixed;
-      top: 12px;
-      right: 12px;
-      padding: 8px 14px;
-      font-size: 22px;
-      border-radius: 50px;
-      border: 2px solid var(--border);
-      background: var(--bg);
-      color: var(--fg);
-      cursor: pointer;
-      z-index: 999;
-      min-width: unset;
-    }
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.btn-row button { flex: 1; min-width: 120px; }
 
-    /* ---- Word count badge ---- */
-    #wordCountBadge {
-      display: inline-block;
-      background: var(--badge-bg);
-      color: var(--badge-fg);
-      font-size: 20px;
-      font-weight: bold;
-      padding: 6px 18px;
-      border-radius: 50px;
-    }
-    #wordCountBadge.hidden { display: none; }
+/* ---- Theme toggle — fixed top-right ---- */
+#themeBtn {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  padding: 8px 14px;
+  font-size: 22px;
+  border-radius: 50px;
+  border: 2px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+  z-index: 999;
+  min-width: unset;
+}
 
-    /* ---- Import ---- */
-    input[type="file"] { font-size: 18px; width: 100%; margin-bottom: 10px; }
-    #import-result { color: #2a9d2a; font-weight: bold; margin-top: 8px; font-size: 18px; }
+/* ---- Word count badge ---- */
+#wordCountBadge {
+  display: inline-block;
+  background: var(--badge-bg);
+  color: var(--badge-fg);
+  font-size: 20px;
+  font-weight: bold;
+  padding: 6px 18px;
+  border-radius: 50px;
+}
+#wordCountBadge.hidden { display: none; }
 
-    /* ---- Learn area ---- */
-    #learn-area {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      align-items: stretch;
-    }
+/* ---- Import ---- */
+input[type="file"] { font-size: 18px; width: 100%; margin-bottom: 10px; }
+#import-result { color: #2a9d2a; font-weight: bold; margin-top: 8px; font-size: 18px; }
 
-    #word   { font-size: 36px; font-weight: bold; min-height: 50px; }
-    #answer { font-size: 24px; min-height: 40px; }
+/* ---- Learn area ---- */
+#learn-area {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: stretch;
+}
 
-    /* ---- Debug table ---- */
-    .search-row { display: flex; gap: 8px; margin-bottom: 10px; }
-    .search-row input {
-      flex: 1;
-      padding: 10px;
-      font-size: 18px;
-      border: 2px solid var(--input-b);
-      border-radius: 6px;
-      background: var(--bg);
-      color: var(--fg);
-    }
+#word   { min-height: 50px; }
+#answer { font-size: 24px; min-height: 40px; }
 
-    table { width: 100%; border-collapse: collapse; font-size: 17px; }
-    th, td { padding: 10px; border: 1px solid var(--input-b); text-align: left; }
-    th { background: var(--muted); }
+/* ---- Debug table ---- */
+.search-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.search-row input {
+  flex: 1;
+  padding: 10px;
+  font-size: 18px;
+  border: 2px solid var(--input-b);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+}
 
-    #debug-output { margin-top: 10px; white-space: pre-wrap; }
+table { width: 100%; border-collapse: collapse; font-size: 17px; }
+th, td { padding: 10px; border: 1px solid var(--input-b); text-align: left; }
+th { background: var(--muted); }
 
-    /* ---- Edit form ---- */
-    #edit-box { padding: 12px; border: 2px solid var(--border); border-radius: 8px; margin-bottom: 12px; }
-    #edit-box label { display: block; margin-bottom: 6px; font-size: 18px; }
-    #edit-box input {
-      width: 100%;
-      padding: 10px;
-      font-size: 18px;
-      border: 2px solid var(--input-b);
-      border-radius: 6px;
-      margin-bottom: 10px;
-      background: var(--bg);
-      color: var(--fg);
-    }
+#debug-output { margin-top: 10px; white-space: pre-wrap; }
 
-    /* ---- Summary ---- */
-    #finish {
-      font-size: 22px;
-      max-height: 80vh;
-      overflow-y: auto;
-      padding: 12px;
-      margin-top: 16px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-    }
+/* ---- Edit form ---- */
+#edit-box { padding: 12px; border: 2px solid var(--border); border-radius: 8px; margin-bottom: 12px; }
+#edit-box label { display: block; margin-bottom: 6px; font-size: 18px; }
+#edit-box input {
+  width: 100%;
+  padding: 10px;
+  font-size: 18px;
+  border: 2px solid var(--input-b);
+  border-radius: 6px;
+  margin-bottom: 10px;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+/* ---- Summary ---- */
+#finish {
+  font-size: 22px;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 12px;
+  margin-top: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+```
+
   </style>
 </head>
 <body>
 
 <!-- ===== THEME TOGGLE (fixed góc phải) ===== -->
+
 <button id="themeBtn" onclick="toggleTheme()">☀️</button>
 
 <!-- ===== IMPORT / EXPORT ===== -->
+
 <h3>Upload JSON từ MySQL</h3>
 <input type="file" id="jsonFile" accept=".json">
 
@@ -171,9 +193,11 @@
 <hr>
 
 <!-- ===== HỌC TỪ ===== -->
+
 <div id="learn-area">
 
   <!-- Badge số từ hôm nay -->
+
   <div id="wordCountBadge" class="hidden"></div>
 
   <div id="word"></div>
@@ -192,7 +216,6 @@
 
 <div id="finish"></div>
 <div id="debug-output"></div>
-
 
 <script>
 /* ============================================================
@@ -412,11 +435,10 @@ function showWord() {
   const color = w.status === 1 ? "green" : w.status === 0 ? "red" : "var(--fg)";
 
   setEl("word", `
-    <div id="sentence" style="font-size:36px; font-weight:bold; color:${color}">
-      ${w.word}
+    <div id="word-row">
+      <div id="sentence" style="color:${color}">${w.word}</div>
+      <button onclick="revealAnswer()">Answer</button>
     </div>
-    <br>
-    <button onclick="revealAnswer()">Answer</button>
   `);
 
   if (w.status === -1) {
@@ -481,7 +503,7 @@ function mark(status) {
   words[count].status = status;
   revealStep = 0;
 
-  const s = document.getElementById("sentence");
+  const s = document.querySelector("#word-row #sentence");
   if (s) s.style.color = status === 1 ? "green" : "red";
 
   if (status === 1) nextWord();
@@ -736,5 +758,6 @@ function deleteAllWords() {
   };
 }
 </script>
+
 </body>
 </html>
