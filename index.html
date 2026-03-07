@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
@@ -26,173 +25,268 @@
       --badge-fg:  #111111;
     }
 
-```
-/* ---- Base ---- */
-* { box-sizing: border-box; margin: 0; padding: 0; }
+    /* ---- Base ---- */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
-body {
-  font-family: sans-serif;
-  font-size: 20px;
-  padding: 14px;
-  max-width: 600px;
-  margin: 0 auto;
-  background: var(--bg);
-  color: var(--fg);
-  transition: background 0.2s, color 0.2s;
-}
+    body {
+      font-family: sans-serif;
+      font-size: 20px;
+      padding: 14px;
+      max-width: 600px;
+      margin: 0 auto;
+      background: var(--bg);
+      color: var(--fg);
+      transition: background 0.2s, color 0.2s;
+    }
 
-h3  { font-size: 22px; margin-bottom: 10px; }
-hr  { margin: 16px 0; border: 1px solid var(--border); }
+    h3  { font-size: 22px; margin-bottom: 10px; }
+    hr  { margin: 16px 0; border: 1px solid var(--border); }
 
-/* ---- Buttons ---- */
-button {
-  padding: 14px 18px;
-  font-size: 20px;
-  border: 2px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-  color: var(--fg);
-  cursor: pointer;
-  min-width: 80px;
-  transition: background 0.15s;
-  /* ngăn double-tap zoom trên mobile */
-  touch-action: manipulation;
-}
-button:active { opacity: 0.7; }
+    /* ---- Buttons ---- */
+    button {
+      padding: 14px 18px;
+      font-size: 20px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--fg);
+      cursor: pointer;
+      min-width: 80px;
+      transition: background 0.15s;
+      /* ngăn double-tap zoom trên mobile */
+      touch-action: manipulation;
+    }
+    button:active { opacity: 0.7; }
 
-/* ---- Word + Answer-btn ngang hàng ---- */
-#word-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-#word-row #sentence {
-  flex: 1;
-  font-size: 36px;
-  font-weight: bold;
-}
-/* Nx căn giữa */
-#answer { text-align: center; }
+    /* ---- Word + Answer-btn ngang hàng ---- */
+    #word-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    #word-row #sentence {
+      flex: 1;
+      font-size: 36px;
+      font-weight: bold;
+    }
+    /* Nx căn giữa */
+    #answer { text-align: center; }
 
-.btn-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-.btn-row button { flex: 1; min-width: 120px; }
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .btn-row button { flex: 1; min-width: 120px; }
 
-/* ---- Theme toggle — fixed top-right ---- */
-#themeBtn {
-  position: fixed;
-  top: 12px;
-  right: 12px;
-  padding: 8px 14px;
-  font-size: 22px;
-  border-radius: 50px;
-  border: 2px solid var(--border);
-  background: var(--bg);
-  color: var(--fg);
-  cursor: pointer;
-  z-index: 999;
-  min-width: unset;
-}
+    /* ---- Theme toggle — fixed top-right ---- */
+    #themeBtn {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      padding: 8px 14px;
+      font-size: 22px;
+      border-radius: 50px;
+      border: 2px solid var(--border);
+      background: var(--bg);
+      color: var(--fg);
+      cursor: pointer;
+      z-index: 999;
+      min-width: unset;
+    }
 
-/* ---- Word count badge ---- */
-#wordCountBadge {
-  display: inline-block;
-  background: var(--badge-bg);
-  color: var(--badge-fg);
-  font-size: 20px;
-  font-weight: bold;
-  padding: 6px 18px;
-  border-radius: 50px;
-}
-#wordCountBadge.hidden { display: none; }
+    /* ---- Settings button — fixed top-left ---- */
+    #settingBtn {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      padding: 8px 14px;
+      font-size: 22px;
+      border-radius: 50px;
+      border: 2px solid var(--border);
+      background: var(--bg);
+      color: var(--fg);
+      cursor: pointer;
+      z-index: 999;
+      min-width: unset;
+      touch-action: manipulation;
+    }
 
-/* ---- Import ---- */
-input[type="file"] { font-size: 18px; width: 100%; margin-bottom: 10px; }
-#import-result { color: #2a9d2a; font-weight: bold; margin-top: 8px; font-size: 18px; }
+    /* ---- Settings panel overlay ---- */
+    #settingsOverlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 1000;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    #settingsOverlay.open { display: flex; }
 
-/* ---- Learn area ---- */
-#learn-area {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  align-items: stretch;
-}
+    #settingsPanel {
+      background: var(--bg);
+      color: var(--fg);
+      width: 100%;
+      max-width: 600px;
+      border-radius: 16px 16px 0 0;
+      padding: 20px 18px 30px;
+      border-top: 2px solid var(--border);
+    }
+    #settingsPanel h4 {
+      font-size: 22px;
+      margin-bottom: 18px;
+    }
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      gap: 12px;
+    }
+    .setting-row label {
+      font-size: 19px;
+      flex: 1;
+    }
+    .setting-row input[type="number"] {
+      width: 90px;
+      padding: 10px;
+      font-size: 20px;
+      border: 2px solid var(--input-b);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--fg);
+      text-align: center;
+    }
+    #settingsSaveBtn {
+      width: 100%;
+      margin-top: 8px;
+    }
 
-#word   { min-height: 50px; }
-#answer { font-size: 24px; min-height: 40px; }
+    /* ---- Word count badge ---- */
+    #wordCountBadge {
+      display: inline-block;
+      background: var(--badge-bg);
+      color: var(--badge-fg);
+      font-size: 20px;
+      font-weight: bold;
+      padding: 6px 18px;
+      border-radius: 50px;
+    }
+    #wordCountBadge.hidden { display: none; }
 
-/* ---- Debug table ---- */
-.search-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-.search-row input {
-  flex: 1 1 140px;
-  padding: 10px;
-  font-size: 18px;
-  border: 2px solid var(--input-b);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--fg);
-  min-width: 0;
-}
+    /* ---- Import ---- */
+    input[type="file"] { font-size: 18px; width: 100%; margin-bottom: 10px; }
+    #import-result { color: #2a9d2a; font-weight: bold; margin-top: 8px; font-size: 18px; }
 
-#table-wrap { overflow-x: auto; width: 100%; }
+    /* ---- Learn area ---- */
+    #learn-area {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      align-items: stretch;
+    }
 
-table { width: 100%; border-collapse: collapse; font-size: 17px; }
-th, td { padding: 8px 10px; border: 1px solid var(--input-b); text-align: left; white-space: nowrap; }
-th { background: var(--muted); }
-td.col-mean { white-space: normal; min-width: 120px; }
+    #word   { min-height: 50px; }
+    #answer { font-size: 24px; min-height: 40px; }
 
-@media (orientation: landscape) {
-  table { font-size: 18px; }
-  .search-row input { font-size: 20px; }
-}
+    /* ---- Debug table ---- */
+    .search-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .search-row input {
+      flex: 1 1 140px;
+      padding: 10px;
+      font-size: 18px;
+      border: 2px solid var(--input-b);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--fg);
+      min-width: 0;
+    }
 
-#debug-output { margin-top: 10px; }
+    #table-wrap { overflow-x: auto; width: 100%; }
 
-/* ---- Edit form ---- */
-#edit-box { padding: 12px; border: 2px solid var(--border); border-radius: 8px; margin-bottom: 12px; }
-#edit-box label { display: block; margin-bottom: 6px; font-size: 18px; }
-#edit-box input {
-  width: 100%;
-  padding: 10px;
-  font-size: 18px;
-  border: 2px solid var(--input-b);
-  border-radius: 6px;
-  margin-bottom: 10px;
-  background: var(--bg);
-  color: var(--fg);
-}
+    table { width: 100%; border-collapse: collapse; font-size: 17px; }
+    th, td { padding: 8px 10px; border: 1px solid var(--input-b); text-align: left; white-space: nowrap; }
+    th { background: var(--muted); }
+    td.col-mean { white-space: normal; min-width: 120px; }
 
-/* ---- Summary ---- */
-#finish {
-  font-size: 22px;
-  max-height: 80vh;
-  overflow-y: auto;
-  padding: 12px;
-  margin-top: 16px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-```
+    @media (orientation: landscape) {
+      table { font-size: 18px; }
+      .search-row input { font-size: 20px; }
+    }
 
+    #debug-output { margin-top: 10px; }
+
+    /* ---- Edit form ---- */
+    #edit-box { padding: 12px; border: 2px solid var(--border); border-radius: 8px; margin-bottom: 12px; }
+    #edit-box label { display: block; margin-bottom: 6px; font-size: 18px; }
+    #edit-box input {
+      width: 100%;
+      padding: 10px;
+      font-size: 18px;
+      border: 2px solid var(--input-b);
+      border-radius: 6px;
+      margin-bottom: 10px;
+      background: var(--bg);
+      color: var(--fg);
+    }
+
+    /* ---- Summary ---- */
+    #finish {
+      font-size: 22px;
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 12px;
+      margin-top: 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
   </style>
 </head>
 <body>
 
 <!-- ===== THEME TOGGLE (fixed góc phải) ===== -->
-
 <button id="themeBtn" onclick="toggleTheme()">☀️</button>
 
-<!-- ===== IMPORT / EXPORT ===== -->
+<!-- ===== SETTINGS BUTTON (fixed góc trái) ===== -->
+<button id="settingBtn" onclick="openSettings()">⚙️</button>
 
+<!-- ===== SETTINGS PANEL ===== -->
+<div id="settingsOverlay" onclick="closeSettingsIfOutside(event)">
+  <div id="settingsPanel">
+    <h4>⚙️ Cài đặt thuật toán</h4>
+
+    <div class="setting-row">
+      <label>Nx multiplier<br><small style="font-size:15px;opacity:0.6">nhân điểm khi bấm N_point</small></label>
+      <input type="number" id="s_nx" step="0.1" min="1">
+    </div>
+
+    <div class="setting-row">
+      <label>Bonus base<br><small style="font-size:15px;opacity:0.6">điểm cộng cố định khi đúng / trừ khi sai &lt;10</small></label>
+      <input type="number" id="s_bonus_base" step="0.1" min="0">
+    </div>
+
+    <div class="setting-row">
+      <label>Bonus divisor<br><small style="font-size:15px;opacity:0.6">chia điểm hiện tại để tính bonus (5.5)</small></label>
+      <input type="number" id="s_bonus_div" step="0.1" min="0.1">
+    </div>
+
+    <div class="setting-row">
+      <label>Nx threshold<br><small style="font-size:15px;opacity:0.6">ngưỡng điểm đổi công thức Nx (45)</small></label>
+      <input type="number" id="s_nx_threshold" step="1" min="1">
+    </div>
+
+    <button id="settingsSaveBtn" onclick="saveSettings()">💾 Lưu cài đặt</button>
+  </div>
+</div>
+
+<!-- ===== IMPORT / EXPORT ===== -->
 <h3>Upload JSON từ MySQL</h3>
 <input type="file" id="jsonFile" accept=".json">
 
@@ -207,11 +301,9 @@ td.col-mean { white-space: normal; min-width: 120px; }
 <hr>
 
 <!-- ===== HỌC TỪ ===== -->
-
 <div id="learn-area">
 
   <!-- Badge số từ hôm nay -->
-
   <div id="wordCountBadge" class="hidden"></div>
 
   <div id="word"></div>
@@ -231,6 +323,7 @@ td.col-mean { white-space: normal; min-width: 120px; }
 <div id="finish"></div>
 <div id="debug-output"></div>
 
+
 <script>
 /* ============================================================
    THEME
@@ -245,8 +338,53 @@ function toggleTheme() {
 
 
 /* ============================================================
-   INDEXEDDB
+   SETTINGS
 ============================================================ */
+const SETTINGS_KEY = "vocab_settings";
+
+// Giá trị mặc định
+const DEFAULT_SETTINGS = {
+  nx:           1.5,   // Nx multiplier
+  bonus_base:   1.5,   // điểm cộng cố định (đúng) / trừ thêm (sai & point<10)
+  bonus_div:    5.5,   // chia điểm hiện tại để tính bonus (status=1)
+  nx_threshold: 45     // ngưỡng đổi công thức Nx
+};
+
+let cfg = { ...DEFAULT_SETTINGS };
+
+function loadSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY));
+    if (saved) cfg = { ...DEFAULT_SETTINGS, ...saved };
+  } catch { /* dùng default */ }
+}
+
+function openSettings() {
+  loadSettings();
+  document.getElementById("s_nx").value           = cfg.nx;
+  document.getElementById("s_bonus_base").value   = cfg.bonus_base;
+  document.getElementById("s_bonus_div").value    = cfg.bonus_div;
+  document.getElementById("s_nx_threshold").value = cfg.nx_threshold;
+  document.getElementById("settingsOverlay").classList.add("open");
+}
+
+function saveSettings() {
+  cfg.nx           = Number(document.getElementById("s_nx").value)           || DEFAULT_SETTINGS.nx;
+  cfg.bonus_base   = Number(document.getElementById("s_bonus_base").value)   || DEFAULT_SETTINGS.bonus_base;
+  cfg.bonus_div    = Number(document.getElementById("s_bonus_div").value)    || DEFAULT_SETTINGS.bonus_div;
+  cfg.nx_threshold = Number(document.getElementById("s_nx_threshold").value) || DEFAULT_SETTINGS.nx_threshold;
+
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(cfg));
+  document.getElementById("settingsOverlay").classList.remove("open");
+}
+
+function closeSettingsIfOutside(e) {
+  if (e.target === document.getElementById("settingsOverlay"))
+    document.getElementById("settingsOverlay").classList.remove("open");
+}
+
+
+
 let db;
 
 const dbReq = indexedDB.open("MyDB", 1);
@@ -264,6 +402,7 @@ dbReq.onupgradeneeded = e => {
 
 dbReq.onsuccess = e => {
   db = e.target.result;
+  loadSettings();
   takeVocabulary();
 };
 
@@ -548,24 +687,31 @@ function saveVocabulary() {
   if (!words?.length) return alert("Không có dữ liệu để lưu.");
 
   const finishBox = document.getElementById("finish");
-  finishBox.innerHTML = `<b>Bạn đã hoàn thành readings hôm nay:</b><br><br>`;
+  finishBox.innerHTML = `<b>Hoàn thành hôm nay:</b><br><br>`;
 
   const tx    = db.transaction("words", "readwrite");
   const store = tx.objectStore("words");
-  const Nx    = 1.5;
+
+  // lấy từ cfg (settings)
+  const Nx           = cfg.nx;
+  const bonusBase    = cfg.bonus_base;
+  const bonusDiv     = cfg.bonus_div;
+  const nxThreshold  = cfg.nx_threshold;
 
   words.forEach(w => {
     if (w.status !== 0 && w.status !== 1) return;
 
-    let point   = Number(w.sum_point_reading);
-    let newDate = new Date(today());
+    const pointBefore = Number(w.sum_point_reading);
+    let   point       = pointBefore;
+    let   newDate     = new Date(today());
 
     if (w.status === 1) {
-      let bonus = 1.3 + Math.round(point / 5.9 * 100) / 100;
+      // bonus = bonusBase + point / bonusDiv
+      const bonus = bonusBase + Math.round(point / bonusDiv * 100) / 100;
       point += bonus;
 
       if (w.Nx_points) {
-        point = point < 45
+        point = point < nxThreshold
           ? Math.round(point * Nx * 100) / 100
           : point + Math.round((point / 6) * Nx * 100) / 100;
       }
@@ -573,20 +719,32 @@ function saveVocabulary() {
       newDate.setDate(newDate.getDate() + Math.floor(point));
 
     } else {
-      point = Math.round(point * 2 / 3 * 100) / 100;
+      // status = 0 (sai)
+      if (point < 10) {
+        point = Math.round(point * (2 / 3) * 100) / 100 - bonusBase;
+        if (point < 0) point = 0;
+      } else {
+        point = Math.round(point * (3 / 4) * 100) / 100;
+      }
+
       if (w.Nx_points) point = Math.round(point / Nx * 100) / 100;
-      newDate.setDate(newDate.getDate() + Math.floor(point / 2));
+
+      newDate.setDate(newDate.getDate() + Math.floor(point * 2 / 3));
     }
 
-    store.put({
-      ...w,
-      sum_point_reading: point,
-      next_reading_time: newDate.toISOString().slice(0, 10)
-    });
+    const nextDate = newDate.toISOString().slice(0, 10);
+    store.put({ ...w, sum_point_reading: point, next_reading_time: nextDate });
+
+    const color  = w.status === 1 ? "green" : "red";
+    const arrow  = w.status === 1 ? "↑" : "↓";
+    const nxMark = w.Nx_points ? " ✦" : "";
 
     finishBox.innerHTML += `
-      <div style="color:${w.status === 1 ? 'green' : 'red'}; margin-bottom:6px">
-        ${w.word} (${w.type}): ${w.mean}
+      <div style="color:${color}; margin-bottom:8px; font-size:20px">
+        ${arrow} <b>${w.word}</b> (${w.type}): ${w.mean}${nxMark}
+        <span style="font-size:16px; opacity:0.7; margin-left:6px">
+          ${pointBefore.toFixed(2)} → ${point.toFixed(2)} · next: ${nextDate}
+        </span>
       </div>
     `;
   });
@@ -622,8 +780,8 @@ function debugShowAll() {
         <button onclick="showCreateForm()">+ Tạo mới</button>
       </div>
       <div class="search-row">
-        <input id="searchWord" placeholder="Tìm word" autocapitalize="none" oninput="filterTable()">
-        <input id="searchMean" placeholder="Tìm mean" autocapitalize="none" oninput="filterTable()">
+        <input id="searchWord" placeholder="Tìm word" oninput="filterTable()">
+        <input id="searchMean" placeholder="Tìm mean" oninput="filterTable()">
       </div>
       <div id="table-wrap">
         <table id="debug-table">
@@ -774,6 +932,5 @@ function deleteAllWords() {
   };
 }
 </script>
-
 </body>
 </html>
