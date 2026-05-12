@@ -53,7 +53,6 @@
       cursor: pointer;
       min-width: 80px;
       transition: background 0.15s;
-      /* ngăn double-tap zoom trên mobile */
       touch-action: manipulation;
     }
     button:active { opacity: 0.7; }
@@ -69,7 +68,6 @@
       font-size: 36px;
       font-weight: bold;
     }
-    /* Nx căn giữa */
     #answer { text-align: center; }
 
     .btn-row {
@@ -133,6 +131,8 @@
       border-radius: 16px 16px 0 0;
       padding: 20px 18px 30px;
       border-top: 2px solid var(--border);
+      max-height: 80vh;
+      overflow-y: auto;
     }
     #settingsPanel h4 {
       font-size: 22px;
@@ -159,9 +159,28 @@
       color: var(--fg);
       text-align: center;
     }
+    .setting-row input[type="text"],
+    .setting-row input[type="password"] {
+      flex: 1;
+      padding: 10px;
+      font-size: 18px;
+      border: 2px solid var(--input-b);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--fg);
+    }
     #settingsSaveBtn {
       width: 100%;
       margin-top: 8px;
+    }
+    .settings-section-title {
+      font-size: 16px;
+      opacity: 0.5;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin: 18px 0 10px;
+      border-top: 1px solid var(--border);
+      padding-top: 14px;
     }
 
     /* ---- Word count badge ---- */
@@ -190,6 +209,33 @@
 
     #word   { min-height: 50px; }
     #answer { font-size: 24px; min-height: 40px; }
+
+    /* ---- Suggest button (inline, small, top-right of word-row) ---- */
+    #suggestBtn {
+      padding: 6px 12px;
+      font-size: 16px;
+      border-radius: 20px;
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+      color: var(--fg);
+      cursor: pointer;
+      min-width: unset;
+      align-self: flex-start;
+      opacity: 0.75;
+      touch-action: manipulation;
+    }
+    #suggestBtn:active { opacity: 0.4; }
+
+    /* ---- Suggest display (between word-row and answer) ---- */
+    #suggest-area {
+      font-size: 18px;
+      font-style: italic;
+      opacity: 0.85;
+      min-height: 0;
+      padding: 0 2px;
+      line-height: 1.5;
+    }
+    #suggest-area.loading { opacity: 0.5; }
 
     /* ---- Debug table ---- */
     .search-row {
@@ -223,7 +269,7 @@
 
     #debug-output { margin-top: 10px; }
 
-    /* ---- Edit form ---- */
+    /* ---- Edit form (2-row layout) ---- */
     #edit-box { padding: 12px; border: 2px solid var(--border); border-radius: 8px; margin-bottom: 12px; }
     #edit-box label { display: block; margin-bottom: 6px; font-size: 18px; }
     #edit-box input {
@@ -233,6 +279,27 @@
       border: 2px solid var(--input-b);
       border-radius: 6px;
       margin-bottom: 10px;
+      background: var(--bg);
+      color: var(--fg);
+    }
+
+    /* inline edit rows in table */
+    .edit-row-main td,
+    .edit-row-extra td {
+      background: var(--muted);
+    }
+    .edit-row-extra { overflow-x: auto; }
+    .edit-row-extra td > div {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .edit-row-extra input {
+      padding: 6px 8px;
+      font-size: 16px;
+      border: 2px solid var(--input-b);
+      border-radius: 6px;
       background: var(--bg);
       color: var(--fg);
     }
@@ -260,7 +327,9 @@
 <!-- ===== SETTINGS PANEL ===== -->
 <div id="settingsOverlay" onclick="closeSettingsIfOutside(event)">
   <div id="settingsPanel">
-    <h4>⚙️ Cài đặt thuật toán</h4>
+    <h4>⚙️ Cài đặt</h4>
+
+    <div class="settings-section-title">Thuật toán</div>
 
     <div class="setting-row">
       <label>Nx multiplier<br><small style="font-size:15px;opacity:0.6">nhân điểm khi bấm N_point</small></label>
@@ -280,6 +349,12 @@
     <div class="setting-row">
       <label>Nx threshold<br><small style="font-size:15px;opacity:0.6">ngưỡng điểm đổi công thức Nx (45)</small></label>
       <input type="number" id="s_nx_threshold" step="1" min="1">
+    </div>
+
+    <div class="settings-section-title">API — Gemini (tùy chọn)</div>
+    <div class="setting-row">
+      <label>Gemini API Key<br><small style="font-size:15px;opacity:0.6">lưu local, không upload git</small></label>
+      <input type="password" id="s_gemini_key" placeholder="AIza...">
     </div>
 
     <button id="settingsSaveBtn" onclick="saveSettings()">💾 Lưu cài đặt</button>
@@ -307,6 +382,10 @@
   <div id="wordCountBadge" class="hidden"></div>
 
   <div id="word"></div>
+
+  <!-- Suggest example sentence (between word and answer) -->
+  <div id="suggest-area"></div>
+
   <div id="answer"></div>
 
   <div class="btn-row">
@@ -342,12 +421,12 @@ function toggleTheme() {
 ============================================================ */
 const SETTINGS_KEY = "vocab_settings";
 
-// Giá trị mặc định
 const DEFAULT_SETTINGS = {
-  nx:           1.5,   // Nx multiplier
-  bonus_base:   1.5,   // điểm cộng cố định (đúng) / trừ thêm (sai & point<10)
-  bonus_div:    5.5,   // chia điểm hiện tại để tính bonus (status=1)
-  nx_threshold: 45     // ngưỡng đổi công thức Nx
+  nx:           1.5,
+  bonus_base:   1.5,
+  bonus_div:    5.5,
+  nx_threshold: 45,
+  gemini_key:   ""
 };
 
 let cfg = { ...DEFAULT_SETTINGS };
@@ -365,6 +444,7 @@ function openSettings() {
   document.getElementById("s_bonus_base").value   = cfg.bonus_base;
   document.getElementById("s_bonus_div").value    = cfg.bonus_div;
   document.getElementById("s_nx_threshold").value = cfg.nx_threshold;
+  document.getElementById("s_gemini_key").value   = cfg.gemini_key || "";
   document.getElementById("settingsOverlay").classList.add("open");
 }
 
@@ -373,6 +453,7 @@ function saveSettings() {
   cfg.bonus_base   = Number(document.getElementById("s_bonus_base").value)   || DEFAULT_SETTINGS.bonus_base;
   cfg.bonus_div    = Number(document.getElementById("s_bonus_div").value)    || DEFAULT_SETTINGS.bonus_div;
   cfg.nx_threshold = Number(document.getElementById("s_nx_threshold").value) || DEFAULT_SETTINGS.nx_threshold;
+  cfg.gemini_key   = document.getElementById("s_gemini_key").value.trim();
 
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(cfg));
   document.getElementById("settingsOverlay").classList.remove("open");
@@ -384,7 +465,9 @@ function closeSettingsIfOutside(e) {
 }
 
 
-
+/* ============================================================
+   INDEXEDDB OPEN
+============================================================ */
 let db;
 
 const dbReq = indexedDB.open("MyDB", 1);
@@ -436,7 +519,7 @@ function setWordCountBadge(n) {
 
 
 /* ============================================================
-   IMPORT JSON
+   IMPORT JSON  — Task 1: fix race condition, thêm fields mới
 ============================================================ */
 function importJSON() {
   const file = document.getElementById("jsonFile").files[0];
@@ -454,49 +537,80 @@ function importJSON() {
   reader.readAsText(file);
 }
 
-function saveWords(words) {
-  exportJSON();     // backup trước khi xóa
-  deleteAllWords(); // xóa cũ
-
-  const tx    = db.transaction("words", "readwrite");
-  const store = tx.objectStore("words");
-  let countUpdate = 0, countInsert = 0;
-
-  words.forEach(w => {
+/* ---- saveWords: fix lỗi 1 (deleteAllWords không cần confirm) + lỗi 2 (race condition) ---- */
+function saveWords(rawWords) {
+  exportJSON(); // backup trước
+  deleteAllWords();
+  // Lọc trước, xây map key→record
+  const todayStr = today();
+  const incoming = {};
+  rawWords.forEach(w => {
     if (w.host !== "Long") return;
-
     const key = `${w.word}|${w.type}|${w.mean}`;
-
-    store.get(key).onsuccess = e => {
-      const existing = e.target.result;
-
-      if (existing) {
-        existing.sum_point_reading = Number(w.sum_point_reading || existing.sum_point_reading || 0);
-        existing.next_reading_time = w.next_reading_time || existing.next_reading_time;
-        store.put(existing);
-        countUpdate++;
-      } else {
-        store.add({
-          key,
-          word:              w.word,
-          type:              w.type,
-          mean:              w.mean,
-          sum_point_reading: Number(w.sum_point_reading || 0),
-          next_reading_time: w.next_reading_time
-        });
-        countInsert++;
-      }
+    incoming[key] = {
+      key,
+      word:              w.word,
+      type:              w.type,
+      mean:              w.mean,
+      sum_point_reading: Number(w.sum_point_reading || 0),
+      next_reading_time: w.next_reading_time || todayStr,
+      created_date:      w.created_date      || todayStr,   // Task 1: ngày tạo
+      correct_count:     Number(w.correct_count  || 0),    // Task 1: số lần đúng
+      wrong_count:       Number(w.wrong_count    || 0)     // Task 1: số lần sai
     };
   });
 
-  tx.oncomplete = () => {
-    document.getElementById("import-result").innerText =
-      `Cập nhật ${countUpdate} từ, thêm mới ${countInsert} từ thành công!`;
+  const keys = Object.keys(incoming);
+  if (!keys.length) return alert("Không có từ nào của Long!");
+
+  // Xóa toàn bộ trước (không cần confirm — đã backup ở trên)
+  const clearTx = db.transaction("words", "readwrite");
+  clearTx.objectStore("words").clear();
+  clearTx.oncomplete = () => {
+    // Sau khi xóa xong mới bắt đầu insert — một transaction mới
+    insertAllWords(keys, incoming);
   };
-  tx.onerror = e => {
-    console.error(e.target.error);
-    alert("Lỗi khi lưu vào IndexedDB!");
+  clearTx.onerror = e => {
+    console.error("Clear error:", e.target.error);
+    alert("Lỗi khi xóa dữ liệu cũ!");
   };
+}
+
+/* Chia nhỏ insert thành batch để tránh timeout transaction với dữ liệu lớn */
+function insertAllWords(keys, incoming, batchSize = 200) {
+  let offset = 0;
+  let countInsert = 0;
+
+  function insertBatch() {
+    const batch = keys.slice(offset, offset + batchSize);
+    if (!batch.length) {
+      // Tất cả xong
+      document.getElementById("import-result").innerText =
+        `Nhập thành công ${countInsert} từ!`;
+      takeVocabulary();
+      if (debugVisible) debugShowAll();
+      return;
+    }
+
+    const tx    = db.transaction("words", "readwrite");
+    const store = tx.objectStore("words");
+
+    batch.forEach(key => {
+      store.put(incoming[key]);
+      countInsert++;
+    });
+
+    tx.oncomplete = () => {
+      offset += batchSize;
+      insertBatch(); // đệ quy batch tiếp theo
+    };
+    tx.onerror = e => {
+      console.error("Insert batch error:", e.target.error);
+      alert(`Lỗi khi insert batch tại offset ${offset}!`);
+    };
+  }
+
+  insertBatch();
 }
 
 
@@ -507,14 +621,17 @@ function exportJSON() {
   const tx = db.transaction("words", "readonly");
   tx.objectStore("words").getAll().onsuccess = e => {
     const all = e.target.result;
-    if (!all?.length) return alert("Không có dữ liệu để xuất!");
+    if (!all?.length) return;   // không alert nếu trống (gọi tự động khi import)
 
     const data = all.map(w => ({
       word:              w.word,
       type:              w.type,
       mean:              w.mean,
       sum_point_reading: w.sum_point_reading,
-      next_reading_time: w.next_reading_time
+      next_reading_time: w.next_reading_time,
+      created_date:      w.created_date  || today(),
+      correct_count:     w.correct_count || 0,
+      wrong_count:       w.wrong_count   || 0
     }));
 
     const a    = document.createElement("a");
@@ -566,6 +683,7 @@ function nextWord() {
     count = endCount;
     setEl("word",   "Hoàn thành!");
     setEl("answer", "");
+    setEl("suggest-area", "");
     return;
   }
   showWord();
@@ -578,18 +696,25 @@ function backWord() {
 
 
 /* ============================================================
-   HIỂN THỊ TỪ
+   HIỂN THỊ TỪ  — Task 3: thêm nút Suggest
 ============================================================ */
 let revealStep = 0;
 
 function showWord() {
-  revealStep  = 0;
+  revealStep = 0;
+  setEl("suggest-area", ""); // reset suggest mỗi lần chuyển từ
   const w     = words[count];
   const color = w.status === 1 ? "green" : w.status === 0 ? "red" : "var(--fg)";
+
+  // Nút Suggest chỉ hiện khi status === -1 (chưa trả lời)
+  const suggestHtml = w.status === -1
+    ? `<button id="suggestBtn" onclick="suggestExample()">💡 Suggest</button>`
+    : "";
 
   setEl("word", `
     <div id="word-row">
       <div id="sentence" style="color:${color}">${w.word}</div>
+      ${suggestHtml}
       <button onclick="revealAnswer()">Answer</button>
     </div>
   `);
@@ -659,6 +784,10 @@ function mark(status) {
   const s = document.querySelector("#word-row #sentence");
   if (s) s.style.color = status === 1 ? "green" : "red";
 
+  // Ẩn nút Suggest khi đã trả lời
+  const sb = document.getElementById("suggestBtn");
+  if (sb) sb.remove();
+
   if (status === 1) nextWord();
 }
 
@@ -681,10 +810,13 @@ function finish() {
 
 
 /* ============================================================
-   LƯU KẾT QUẢ
+   LƯU KẾT QUẢ  — Task 2: cộng correct_count / wrong_count
 ============================================================ */
 function saveVocabulary() {
   if (!words?.length) return alert("Không có dữ liệu để lưu.");
+
+  const answered = words.filter(w => w.status === 0 || w.status === 1);
+  if (!answered.length) return alert("Chưa trả lời từ nào.");
 
   const finishBox = document.getElementById("finish");
   finishBox.innerHTML = `<b>Hoàn thành hôm nay:</b><br><br>`;
@@ -692,21 +824,22 @@ function saveVocabulary() {
   const tx    = db.transaction("words", "readwrite");
   const store = tx.objectStore("words");
 
-  // lấy từ cfg (settings)
-  const Nx           = cfg.nx;
-  const bonusBase    = cfg.bonus_base;
-  const bonusDiv     = cfg.bonus_div;
-  const nxThreshold  = cfg.nx_threshold;
+  const Nx          = cfg.nx;
+  const bonusBase   = cfg.bonus_base;
+  const bonusDiv    = cfg.bonus_div;
+  const nxThreshold = cfg.nx_threshold;
+  const todayStr    = today();
 
-  words.forEach(w => {
-    if (w.status !== 0 && w.status !== 1) return;
-
+  answered.forEach(w => {
     const pointBefore = Number(w.sum_point_reading);
     let   point       = pointBefore;
-    let   newDate     = new Date(today());
+    let   newDate     = new Date(todayStr);
+
+    // Task 2: cập nhật đếm đúng / sai
+    const newCorrect = Number(w.correct_count || 0) + (w.status === 1 ? 1 : 0);
+    const newWrong   = Number(w.wrong_count   || 0) + (w.status === 0 ? 1 : 0);
 
     if (w.status === 1) {
-      // bonus = bonusBase + point / bonusDiv
       const bonus = bonusBase + Math.round(point / bonusDiv * 100) / 100;
       point += bonus;
 
@@ -733,7 +866,15 @@ function saveVocabulary() {
     }
 
     const nextDate = newDate.toISOString().slice(0, 10);
-    store.put({ ...w, sum_point_reading: point, next_reading_time: nextDate });
+
+    store.put({
+      ...w,
+      sum_point_reading: point,
+      next_reading_time: nextDate,
+      correct_count:     newCorrect,
+      wrong_count:       newWrong,
+      created_date:      w.created_date || todayStr
+    });
 
     const color  = w.status === 1 ? "green" : "red";
     const arrow  = w.status === 1 ? "↑" : "↓";
@@ -754,7 +895,109 @@ function saveVocabulary() {
     setWordCountBadge(0);
     setEl("word",   "");
     setEl("answer", "");
+    setEl("suggest-area", "");
   };
+}
+
+
+/* ============================================================
+   SUGGEST — Task 4: gọi Claude API
+============================================================ */
+async function suggestExample() {
+  const w = words[count];
+  if (!w) return;
+
+  const suggestArea = document.getElementById("suggest-area");
+  if (!suggestArea) return;
+
+  // Ẩn nút để tránh bấm nhiều lần
+  const btn = document.getElementById("suggestBtn");
+  if (btn) btn.disabled = true;
+
+  suggestArea.className = "loading";
+  suggestArea.textContent = "⏳ Đang tạo câu ví dụ...";
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        system: `You are a vocabulary example generator.
+STRICT RULES — follow exactly, no exceptions:
+1. Reply with ONE English sentence only.
+2. The sentence MUST contain the given word naturally.
+3. Do NOT translate. Do NOT add explanation. Do NOT add punctuation outside the sentence.
+4. Output only the sentence string, nothing else — no quotes, no labels, no newlines before or after.`,
+        messages: [
+          { role: "user", content: `word: "${w.word}" (${w.type})` }
+        ]
+      })
+    });
+
+    const data = await response.json();
+    const sentence = data?.content?.[0]?.text?.trim() || "";
+
+    suggestArea.className = "";
+    if (sentence) {
+      suggestArea.textContent = `💬 ${sentence}`;
+    } else {
+      suggestArea.textContent = "Không lấy được câu ví dụ.";
+    }
+  } catch (err) {
+    suggestArea.className = "";
+    suggestArea.textContent = "❌ Lỗi kết nối API.";
+    console.error("Suggest error:", err);
+  }
+}
+
+/* Hàm suggest dùng Gemini — cần API key trong Settings */
+async function suggestExampleGemini() {
+  const key = cfg.gemini_key;
+  if (!key) return alert("Chưa nhập Gemini API key trong ⚙️ Cài đặt!");
+
+  const w = words[count];
+  if (!w) return;
+
+  const suggestArea = document.getElementById("suggest-area");
+  const btn = document.getElementById("suggestBtn");
+  if (btn) btn.disabled = true;
+
+  suggestArea.className = "loading";
+  suggestArea.textContent = "⏳ Đang tạo câu ví dụ (Gemini)...";
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: `You are a vocabulary example generator.
+STRICT RULES:
+1. Reply with ONE English sentence only.
+2. The sentence MUST contain the word naturally.
+3. Do NOT translate. Do NOT explain. Output only the sentence, nothing else.
+
+word: "${w.word}" (${w.type})`
+          }]
+        }],
+        generationConfig: { maxOutputTokens: 100, temperature: 0.7 }
+      })
+    });
+
+    const data = await response.json();
+    const sentence = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+
+    suggestArea.className = "";
+    suggestArea.textContent = sentence ? `💬 ${sentence}` : "Không lấy được câu ví dụ.";
+  } catch (err) {
+    suggestArea.className = "";
+    suggestArea.textContent = "❌ Lỗi kết nối Gemini API.";
+    console.error("Gemini suggest error:", err);
+  }
 }
 
 
@@ -771,6 +1014,7 @@ function toggleDebug() {
   else              setEl("debug-output", "");
 }
 
+/* Task 3: bảng thêm cột correct, wrong, created */
 function debugShowAll() {
   getStore("readonly").getAll().onsuccess = e => {
     const list = e.target.result;
@@ -786,21 +1030,25 @@ function debugShowAll() {
       <div id="table-wrap">
         <table id="debug-table">
           <tr>
-            <th>Word</th><th>Type</th><th>Mean</th><th>Point</th><th>Next</th><th>Action</th>
+            <th>Word</th><th>Type</th><th>Mean</th><th>Point</th><th>Next</th><th>✅</th><th>❌</th><th>Created</th><th>Action</th>
           </tr>
     `;
 
     list.forEach(w => {
+      const esc = s => String(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
       html += `
-        <tr id="row-${w.key}" class="data-row" data-word="${w.word}" data-mean="${w.mean}">
+        <tr id="row-${esc(w.key)}" class="data-row" data-word="${esc(w.word)}" data-mean="${esc(w.mean)}">
           <td>${w.word}</td>
           <td>${w.type}</td>
           <td class="col-mean">${w.mean}</td>
           <td>${w.sum_point_reading}</td>
           <td>${w.next_reading_time}</td>
+          <td>${w.correct_count || 0}</td>
+          <td>${w.wrong_count   || 0}</td>
+          <td>${w.created_date  || ''}</td>
           <td>
-            <button onclick="editWord('${w.key}')">Sửa</button>
-            <button onclick="deleteWord('${w.key}')">Xóa</button>
+            <button onclick="editWord(${JSON.stringify(esc(w.key))})">Sửa</button>
+            <button onclick="deleteWord(${JSON.stringify(esc(w.key))})">Xóa</button>
           </td>
         </tr>
       `;
@@ -842,19 +1090,22 @@ function showCreateForm() {
 }
 
 function saveNewWord() {
-  // tạo mới: trim() + toLowerCase()
   const word = document.getElementById("e_word").value.trim().toLowerCase();
   const type = document.getElementById("e_type").value.trim().toLowerCase();
   const mean = document.getElementById("e_mean").value.trim().toLowerCase();
   if (!word || !type || !mean) return alert("Thiếu dữ liệu!");
 
-  const key = `${word}|${type}|${mean}`;
+  const key      = `${word}|${type}|${mean}`;
+  const todayStr = today();
 
   const tx = db.transaction("words", "readwrite");
   tx.objectStore("words").add({
     key, word, type, mean,
     sum_point_reading: 0,
-    next_reading_time: today()
+    next_reading_time: todayStr,
+    created_date:      todayStr,
+    correct_count:     0,
+    wrong_count:       0
   });
 
   tx.oncomplete = () => { alert("Đã tạo từ!"); takeVocabulary(); debugShowAll(); };
@@ -862,41 +1113,78 @@ function saveNewWord() {
 
 
 /* ============================================================
-   SỬA TỪ
+   SỬA TỪ  — Task 3: 2 dòng edit (word/type/mean + các field còn lại)
 ============================================================ */
 function editWord(key) {
-  getStore("readonly").get(key).onsuccess = e => {
+  // Giải mã key đã escape nếu cần
+  const realKey = key;
+  getStore("readonly").get(realKey).onsuccess = e => {
     const w   = e.target.result;
-    const row = document.getElementById(`row-${key}`);
+    if (!w) return alert("Không tìm thấy từ!");
 
-    row.innerHTML = `
-      <td><input name="e_word_${key}" value="${w.word}" autocapitalize="none" autocorrect="off" autocomplete="off" spellcheck="false" style="width:100%;font-size:18px;padding:6px"></td>
-      <td><input name="e_type_${key}" value="${w.type}" autocapitalize="none" autocorrect="off" autocomplete="off" spellcheck="false" style="width:60px;font-size:18px;padding:6px"></td>
-      <td><input name="e_mean_${key}" value="${w.mean}" autocapitalize="none" autocorrect="off" autocomplete="off" spellcheck="false" style="width:100%;font-size:18px;padding:6px"></td>
-      <td><input name="e_read_${key}" value="${w.sum_point_reading}" autocomplete="off" style="width:60px;font-size:18px;padding:6px"></td>
-      <td><input name="e_next_${key}" value="${w.next_reading_time}" autocomplete="off" style="width:110px;font-size:18px;padding:6px"></td>
+    const tableRow = document.getElementById(`row-${realKey}`);
+    if (!tableRow) return;
+
+    // Dòng 1: word, type, mean
+    tableRow.className = "edit-row-main";
+    tableRow.innerHTML = `
+      <td><input name="e_word_k" value="${w.word}" autocapitalize="none" autocorrect="off" autocomplete="off" spellcheck="false" style="width:100%;font-size:18px;padding:6px"></td>
+      <td><input name="e_type_k" value="${w.type}" autocapitalize="none" autocorrect="off" autocomplete="off" spellcheck="false" style="width:60px;font-size:18px;padding:6px"></td>
+      <td colspan="6"><input name="e_mean_k" value="${w.mean}" autocapitalize="none" autocorrect="off" autocomplete="off" spellcheck="false" style="width:100%;font-size:18px;padding:6px"></td>
       <td>
-        <button onclick="saveEdit('${key}')">Lưu</button>
+        <button onclick="saveEdit('${realKey.replace(/'/g,"\\'")}')">Lưu</button>
         <button onclick="debugShowAll()">Hủy</button>
       </td>
     `;
+
+    // Dòng 2: point, next, correct, wrong, created — scrollable
+    const extraRow = document.createElement("tr");
+    extraRow.className = "edit-row-extra";
+    extraRow.innerHTML = `
+      <td colspan="9">
+        <div>
+          <span style="font-size:15px;opacity:0.6;white-space:nowrap">Point:</span>
+          <input name="e_read_k" value="${w.sum_point_reading}" style="width:70px">
+          <span style="font-size:15px;opacity:0.6;white-space:nowrap">Next:</span>
+          <input name="e_next_k" value="${w.next_reading_time}" style="width:120px">
+          <span style="font-size:15px;opacity:0.6;white-space:nowrap">✅:</span>
+          <input name="e_correct_k" value="${w.correct_count || 0}" style="width:60px">
+          <span style="font-size:15px;opacity:0.6;white-space:nowrap">❌:</span>
+          <input name="e_wrong_k"   value="${w.wrong_count   || 0}" style="width:60px">
+          <span style="font-size:15px;opacity:0.6;white-space:nowrap">Created:</span>
+          <input name="e_created_k" value="${w.created_date  || today()}" style="width:120px">
+        </div>
+      </td>
+    `;
+    tableRow.parentNode.insertBefore(extraRow, tableRow.nextSibling);
   };
 }
 
 function saveEdit(oldKey) {
-  // sửa: chỉ trim(), không toLowerCase()
-  const q    = name => document.querySelector(`input[name="${name}"]`).value.trim();
-  const word = q(`e_word_${oldKey}`);
-  const type = q(`e_type_${oldKey}`);
-  const mean = q(`e_mean_${oldKey}`);
-  const read = Number(q(`e_read_${oldKey}`));
-  const next = q(`e_next_${oldKey}`);
+  const q = name => document.querySelector(`input[name="${name}"]`).value.trim();
 
-  if (!word || !type || !mean)            return alert("Thiếu dữ liệu!");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(next)) return alert("Ngày phải theo định dạng YYYY-MM-DD");
+  const word    = q("e_word_k");
+  const type    = q("e_type_k");
+  const mean    = q("e_mean_k");
+  const read    = Number(q("e_read_k"));
+  const next    = q("e_next_k");
+  const correct = Number(q("e_correct_k")) || 0;
+  const wrong   = Number(q("e_wrong_k"))   || 0;
+  const created = q("e_created_k");
+
+  if (!word || !type || !mean) return alert("Thiếu dữ liệu!");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(next))    return alert("Next date phải theo định dạng YYYY-MM-DD");
+  if (created && !/^\d{4}-\d{2}-\d{2}$/.test(created)) return alert("Created date phải theo định dạng YYYY-MM-DD");
 
   const newKey = `${word}|${type}|${mean}`;
-  const item   = { key: newKey, word, type, mean, sum_point_reading: read, next_reading_time: next };
+  const item   = {
+    key: newKey, word, type, mean,
+    sum_point_reading: read,
+    next_reading_time: next,
+    correct_count:     correct,
+    wrong_count:       wrong,
+    created_date:      created || today()
+  };
 
   const tx    = db.transaction("words", "readwrite");
   const store = tx.objectStore("words");
@@ -922,13 +1210,12 @@ function deleteWord(key) {
 }
 
 function deleteAllWords() {
-  if (!confirm("Xóa toàn bộ dữ liệu? Không thể hoàn tác!")) return;
-
+  // Không cần confirm — chỉ gọi nội bộ sau khi đã backup
   const tx = db.transaction("words", "readwrite");
-  tx.objectStore("words").clear().onsuccess = () => {
-    alert("Đã xóa toàn bộ!");
+  tx.objectStore("words").clear();
+  tx.oncomplete = () => {
     takeVocabulary();
-    debugShowAll();
+    if (debugVisible) debugShowAll();
   };
 }
 </script>
