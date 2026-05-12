@@ -943,58 +943,102 @@ async function suggestExample() {
   const btn = document.getElementById("suggestBtn");
   if (btn) btn.disabled = true;
 
-  suggestArea.className = "loading";
-  suggestArea.textContent = "⏳ Đang tạo câu ví dụ...";
+  // Thử lần lượt các model từ mới đến cũ
+  const MODELS = [
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-8b"
+  ];
 
-  try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: `You are a vocabulary example sentence generator.
+  const prompt = `You are a vocabulary example sentence generator.
 STRICT OUTPUT RULES — no exceptions:
 1. Output ONE English sentence only.
 2. The sentence MUST use the given word naturally in context.
 3. Do NOT translate. Do NOT explain. Do NOT add any label, quote, or extra text.
 4. Output only the raw sentence string, nothing else.
 
-word: "${w.word}" (${w.type})`
-          }]
-        }],
-        generationConfig: { maxOutputTokens: 80, temperature: 0.7 }
-      })
-    });
+word: "${w.word}" (${w.type})`;
 
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(err?.error?.message || `HTTP ${response.status}`);
+  for (const model of MODELS) {
+    suggestArea.className = "loading";
+    suggestArea.textContent = `⏳ Đang tạo câu ví dụ (${model})...`;
+
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 80, temperature: 0.7 }
+        })
+      });
+
+      const data = await response.json();
+      console.log(`Gemini [${model}] raw:`, JSON.stringify(data, null, 2));
+
+      // Quota hết → thử model tiếp theo, hiện countdown nếu là model cuối
+      if (!response.ok) {
+        const errMsg  = data?.error?.message || "";
+        const retryMatch = errMsg.match(/retry in ([0-9.]+)s/i);
+        const retrySec   = retryMatch ? Math.ceil(parseFloat(retryMatch[1])) : null;
+
+        if (model === MODELS[MODELS.length - 1]) {
+          // Hết model để thử
+          if (retrySec) {
+            startCountdown(suggestArea, btn, retrySec, w);
+          } else {
+            suggestArea.className = "";
+            suggestArea.textContent = `❌ ${errMsg || "Hết quota tất cả model."}`;
+          }
+          return;
+        }
+        // Còn model khác → thử tiếp
+        continue;
+      }
+
+      const sentence = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+      if (sentence) {
+        suggestArea.className = "";
+        suggestArea.textContent = `💬 ${sentence}`;
+        return; // thành công, dừng
+      }
+
+      // Không lấy được text (SAFETY hoặc lý do khác) → thử model tiếp
+      const reason = data?.candidates?.[0]?.finishReason || data?.promptFeedback?.blockReason || "NO_TEXT";
+      if (model === MODELS[MODELS.length - 1]) {
+        suggestArea.className = "";
+        suggestArea.textContent = `⚠️ Không lấy được câu (${reason}).`;
+      }
+
+    } catch (err) {
+      console.error(`Gemini [${model}] error:`, err);
+      if (model === MODELS[MODELS.length - 1]) {
+        suggestArea.className = "";
+        suggestArea.textContent = `❌ Lỗi kết nối: ${err.message}`;
+      }
     }
-
-    const data = await response.json();
-
-    // DEBUG: log toàn bộ response
-    console.log("Gemini raw:", JSON.stringify(data, null, 2));
-
-    const candidate   = data?.candidates?.[0];
-    const finishReason = candidate?.finishReason || "unknown";
-    const sentence    = candidate?.content?.parts?.[0]?.text?.trim() || "";
-
-    suggestArea.className = "";
-    if (sentence) {
-      suggestArea.textContent = `💬 ${sentence}`;
-    } else {
-      suggestArea.innerHTML =
-        `<span style="color:orange">⚠️ finishReason: ${finishReason}</span><br>` +
-        `<pre style="font-size:13px;white-space:pre-wrap;text-align:left;margin-top:6px;opacity:0.8">${JSON.stringify(data, null, 2)}</pre>`;
-    }
-  } catch (err) {
-    suggestArea.className = "";
-    suggestArea.textContent = `❌ Lỗi: ${err.message || "Không kết nối được Gemini API."}`;
-    console.error("Gemini suggest error:", err);
   }
+}
+
+// Đếm ngược và tự retry sau khi hết thời gian chờ
+function startCountdown(suggestArea, btn, seconds, w) {
+  let remaining = seconds;
+
+  function tick() {
+    suggestArea.className = "loading";
+    suggestArea.textContent = `⏳ Hết quota — thử lại sau ${remaining}s...`;
+    if (remaining <= 0) {
+      // Retry
+      if (btn) btn.disabled = false;
+      suggestExample();
+      return;
+    }
+    remaining--;
+    setTimeout(tick, 1000);
+  }
+
+  tick();
 }
 
 
