@@ -464,7 +464,7 @@ function importJSON() {
 ============================================================ */
 function saveWords(words) {
   exportJSON();
-  deleteAllWords();
+  clearAllWords();
 
   const tx    = db.transaction("words", "readwrite");
   const store = tx.objectStore("words");
@@ -747,13 +747,14 @@ function debugShowAll() {
     _allWords    = e.target.result;
     _filtered    = _allWords;
     _currentPage = 1;
-    _keyMap      = [];   // reset key map mỗi lần load
+    _filterWord  = "";
+    _filterMean  = "";
     renderDebugTable();
   };
 }
 
 function renderDebugTable() {
-  _keyMap = [];  // reset trước mỗi lần render
+  _keyMap = [];  // reset đúng 1 lần duy nhất tại đây, trước khi build bảng
 
   const total      = _filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -953,14 +954,21 @@ function deleteWord(idx) {
   tx.onerror    = () => alert("Không thể xóa!");
 }
 
+// Dùng nội bộ (không confirm) — gọi từ saveWords trước khi import
+function clearAllWords(callback) {
+  const tx = db.transaction("words", "readwrite");
+  tx.objectStore("words").clear();
+  tx.oncomplete = () => { if (callback) callback(); };
+}
+
+// Dùng từ UI — có confirm
 function deleteAllWords() {
   if (!confirm("Xóa toàn bộ dữ liệu? Không thể hoàn tác!")) return;
-  const tx = db.transaction("words", "readwrite");
-  tx.objectStore("words").clear().onsuccess = () => {
+  clearAllWords(() => {
     alert("Đã xóa toàn bộ!");
     takeVocabulary();
-    debugShowAll();
-  };
+    if (debugVisible) debugShowAll();
+  });
 }
 </script>
 
