@@ -731,7 +731,7 @@ function showWord() {
 
   // Nút Suggest chỉ hiện khi status === -1 (chưa trả lời)
   const suggestHtml = w.status === -1
-    ? `<button id="suggestBtn" onclick="suggestExample()">💡 Suggest</button>`
+    ? `<button id="suggestBtn" onclick="suggestExampleGemini()">💡 Suggest</button>`
     : "";
 
   setEl("word", `
