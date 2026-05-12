@@ -55,12 +55,29 @@
       background: #f3f3f3;
   }
 
+  .pagination {
+      margin: 12px 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+  }
+  .pagination button {
+      padding: 6px 12px;
+      font-size: 15px;
+      cursor: pointer;
+  }
+  .pagination button.active {
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+  }
 </style>
 
 <h3>Upload JSON dữ liệu từ MySQL</h3>
 <input type="file" id="jsonFile" accept=".json">
 <button onclick="importJSON()">Nhập dữ liệu</button>
-<button onclick="exportWordsToJSON()">📦 Xuất file JSON</button>
+<button onclick="exportJSON()">📦 Xuất file JSON</button>
 <button onclick="debugShowAllWords()">Show dữ liệu</button>
 <button onclick="debugHideAllWords()">Hide dữ liệu</button>
 
@@ -131,104 +148,136 @@ function today() {
 
 /* ============================================================
    IMPORT JSON
+   - Hỗ trợ 2 cấu trúc: MySQL dump và export của app
 ============================================================ */
 function importJSON() {
     const file = document.getElementById("jsonFile").files[0];
     if (!file) return alert("Chọn file trước!");
 
     const reader = new FileReader();
-    reader.onload = function (e) {
+    reader.onload = e => {
         try {
             const data = JSON.parse(e.target.result);
 
-            const tableObj = data.find(item =>
-                item.type === "table" && item.name === "words"
-            );
+            // --- Cấu trúc 1: MySQL dump ---
+            let rawWords = null;
+            if (Array.isArray(data)) {
+                const tableObj = data.find(item => item.type === "table" && item.name === "words");
+                if (tableObj && Array.isArray(tableObj.data)) {
+                    rawWords = tableObj.data;
+                }
+            }
 
-            if (!tableObj) return alert("Không tìm thấy bảng words!");
+            // --- Cấu trúc 2: export của app (mảng object có trường word/type/mean) ---
+            if (!rawWords) {
+                if (Array.isArray(data) && data.length > 0 && data[0].word && data[0].type && data[0].mean) {
+                    rawWords = data;
+                }
+            }
 
-            saveWordsToIndexedDB(tableObj.data);
+            if (!rawWords) return alert("Không tìm thấy bảng words!");
 
-        } catch (err) {
-            alert("JSON lỗi!");
-        }
+            saveWords(rawWords);
+        } catch { alert("JSON lỗi!"); }
     };
-
     reader.readAsText(file);
 }
 
 
 /* ============================================================
-   LƯU DỮ LIỆU JSON VÀO INDEXEDDB
+   SAVE WORDS — backup → confirm → xóa → insert
+   - Lọc host="Long" nếu có, giữ tất cả nếu không có host
+   - Task 1: gán mặc định next_reading_time, created_date, correct_count, wrong_count
 ============================================================ */
-function saveWordsToIndexedDB(words) {
-  
-    exportWordsToJSON();
-    deleteAllWords();
+function saveWords(rawWords) {
+    exportJSON(); // backup trước khi xóa
 
-    const tx = db.transaction("words", "readwrite");
-    const store = tx.objectStore("words");
+    const todayStr = today();
+    const incoming = {};
 
-    let countUpdate = 0;
-    let countInsert = 0;
-
-    words.forEach(w => {
-        if (w.host !== "Long") return; // bỏ qua nếu không phải host Long
-
+    rawWords.forEach(w => {
+        if (w.host && w.host !== "Long") return; // bỏ qua host khác nếu có
         const key = `${w.word}|${w.type}|${w.mean}`;
-        const getReq = store.get(key);
-
-        getReq.onsuccess = function (e) {
-            const existing = e.target.result;
-
-            if (existing) {
-                // 🔹 Nếu key đã tồn tại → cập nhật sum_point_reading / speaking
-                existing.sum_point_reading = Number(w.sum_point_reading || existing.sum_point_reading || 0);
-                existing.sum_point_speaking = Number(w.sum_point_speaking || existing.sum_point_speaking || 0);
-                existing.next_reading_time = w.next_reading_time || existing.next_reading_time;
-                existing.next_speaking_time = w.next_speaking_time || existing.next_speaking_time;
-
-                store.put(existing);
-                countUpdate++;
-            } else {
-                // 🔹 Nếu chưa có → thêm mới
-                const item = {
-                    key,
-                    word: w.word,
-                    type: w.type,
-                    mean: w.mean,
-                    sum_point_reading: Number(w.sum_point_reading || 0),
-                    sum_point_speaking: Number(w.sum_point_speaking || 0),
-                    next_reading_time: w.next_reading_time,
-                    next_speaking_time: w.next_speaking_time
-                };
-                store.add(item);
-                countInsert++;
-            }
+        incoming[key] = {
+            key,
+            word:              w.word,
+            type:              w.type,
+            mean:              w.mean,
+            sum_point_reading: Number(w.sum_point_reading || 0),
+            next_reading_time: w.next_reading_time || todayStr,
+            created_date:      w.created_date      || todayStr,
+            correct_count:     Number(w.correct_count  || 0),
+            wrong_count:       Number(w.wrong_count    || 0)
         };
     });
 
-    tx.oncomplete = () => {
-        document.getElementById("import-result").innerText =
-            `Cập nhật ${countUpdate} từ, thêm mới ${countInsert} từ thành công!`;
-    };
+    const keys = Object.keys(incoming);
+    if (!keys.length) return alert("Không có từ nào hợp lệ trong file!");
 
-    tx.onerror = (e) => {
-        console.error("Lỗi khi import IndexedDB:", e.target.error);
-        alert("Lỗi khi lưu vào IndexedDB!");
+    // Hỏi xác nhận trước khi xóa dữ liệu cũ
+    if (!confirm(`Xóa toàn bộ dữ liệu cũ và nhập ${keys.length} từ mới?\n(Đã tự động backup trước khi xóa)`)) return;
+
+    const clearTx = db.transaction("words", "readwrite");
+    clearTx.objectStore("words").clear();
+    clearTx.oncomplete = () => {
+        // Xóa xong mới insert — transaction mới hoàn toàn
+        insertAllWords(keys, incoming);
+    };
+    clearTx.onerror = e => {
+        console.error("Clear error:", e.target.error);
+        alert("Lỗi khi xóa dữ liệu cũ!");
     };
 }
+
+
+/* ============================================================
+   INSERT ALL WORDS — xử lý tuần tự, mỗi từ 1 transaction riêng
+   Lỗi 1 từ không ảnh hưởng các từ còn lại
+============================================================ */
+function insertAllWords(keys, incoming) {
+    let countOk = 0;
+    let countError = 0;
+
+    function processOne(index) {
+        if (index >= keys.length) {
+            document.getElementById("import-result").innerText =
+                `Nhập thành công ${countOk} từ, lỗi ${countError} từ.`;
+            takeVocabulary();
+            return;
+        }
+
+        const key = keys[index];
+        const item = incoming[key];
+
+        const tx = db.transaction("words", "readwrite");
+        tx.objectStore("words").put(item);
+
+        tx.oncomplete = function () {
+            countOk++;
+            processOne(index + 1);
+        };
+
+        tx.onerror = function (e) {
+            console.error(`Lỗi khi insert [${key}]:`, e.target.error);
+            countError++;
+            processOne(index + 1);
+        };
+    }
+
+    processOne(0);
+}
+
 
 /* ============================================================
    XUẤT DỮ LIỆU TỪ INDEXEDDB RA FILE JSON
 ============================================================ */
-function exportWordsToJSON() {
+function exportJSON() {
     const tx = db.transaction("words", "readonly");
     const store = tx.objectStore("words");
 
-    const request = store.getAll();
+    const req = store.getAll();
 
-    request.onsuccess = function (e) {
+    req.onsuccess = function (e) {
         const all = e.target.result;
 
         if (!all || all.length === 0) {
@@ -236,13 +285,15 @@ function exportWordsToJSON() {
             return;
         }
 
-        // Chỉ lấy các trường cần thiết
         const exportData = all.map(w => ({
-            word: w.word,
-            type: w.type,
-            mean: w.mean,
+            word:              w.word,
+            type:              w.type,
+            mean:              w.mean,
             sum_point_reading: w.sum_point_reading,
-            next_reading_time: w.next_reading_time
+            next_reading_time: w.next_reading_time,
+            created_date:      w.created_date,
+            correct_count:     w.correct_count,
+            wrong_count:       w.wrong_count
         }));
 
         const json = JSON.stringify(exportData, null, 2);
@@ -257,13 +308,12 @@ function exportWordsToJSON() {
         URL.revokeObjectURL(url);
     };
 
-    request.onerror = function () {
+    req.onerror = function () {
         alert("Lỗi khi xuất dữ liệu!");
     };
 }
 
 
-  
 /* ============================================================
    LOAD WORD HÔM NAY
 ============================================================ */
@@ -444,6 +494,10 @@ function finish() {
 }
 
 
+/* ============================================================
+   LƯU KẾT QUẢ HỌC
+   Task 2: cộng correct_count khi đúng, wrong_count khi sai
+============================================================ */
 function saveVocabulary() {
     if (!words || words.length === 0) {
         alert("Không có dữ liệu để lưu.");
@@ -499,12 +553,18 @@ function saveVocabulary() {
 
             newDate.setDate(newDate.getDate() + Math.floor(point / 2));
         }
-        
+
+        // Task 2: cộng đúng/sai
+        const newCorrect = (Number(w.correct_count) || 0) + (w.status === 1 ? 1 : 0);
+        const newWrong   = (Number(w.wrong_count)   || 0) + (w.status === 0 ? 1 : 0);
+
         // cập nhật vào IndexedDB
         const updated = {
             ...w,
             sum_point_reading: point,
-            next_reading_time: newDate.toISOString().slice(0, 10)
+            next_reading_time: newDate.toISOString().slice(0, 10),
+            correct_count:     newCorrect,
+            wrong_count:       newWrong
         };
 
         store.put(updated);
@@ -535,55 +595,100 @@ function saveVocabulary() {
 
 /* ============================================================
    DEBUG — SHOW ALL WORDS
+   Task 3: thêm cột correct_count, wrong_count, created_date (chỉ đọc)
+           phân trang 100 từ/trang
+           khi edit có horizontal scroll
 ============================================================ */
-function debugShowAllWords() {
+let _debugAllWords = [];
+let _debugPage = 1;
+const PAGE_SIZE = 100;
+
+function debugShowAllWords(page) {
     const tx = db.transaction("words", "readonly");
     const store = tx.objectStore("words");
 
     store.getAll().onsuccess = function (e) {
-        const list = e.target.result;
-
-        let html = `
-            <button onclick="showCreateForm()" style="margin-bottom:10px;">+ Tạo mới</button>
-            <div style="margin-bottom:10px;">
-                <input id="searchWord" placeholder="Tìm theo word" oninput="filterDebugTable()" />
-                <input id="searchMean" placeholder="Tìm theo mean" oninput="filterDebugTable()" />
-            </div>
-              <table id="debug-table" border=1 cellpadding=5 style="border-collapse:collapse">
-                <tr style="background:#eee;">
-                    <th>Word</th>
-                    <th>Type</th>
-                    <th>Mean</th>
-                    <th>Reading</th>
-                    <th>Next Read</th>
-                    <th>Action</th>
-                </tr>
-        `;
-
-        list.forEach(w => {
-            const rowId = `row-${w.key}`;
-
-            html += `
-                <tr id="${rowId}" class="data-row" 
-                    data-word="${w.word}" 
-                    data-mean="${w.mean}">
-                    <td>${w.word}</td>
-                    <td>${w.type}</td>
-                    <td>${w.mean}</td>
-                    <td>${w.sum_point_reading}</td>
-                    <td>${w.next_reading_time}</td>
-                    <td>
-                        <button onclick="editWord('${w.key}')">Sửa</button>
-                        <button onclick="deleteWord('${w.key}')">Xóa</button>
-                    </td>
-                </tr>
-            `;
-        });
-
-        html += "</table>";
-
-        document.getElementById("debug-output").innerHTML = html;
+        _debugAllWords = e.target.result;
+        _debugPage = page || 1;
+        renderDebugTable();
     };
+}
+
+function renderDebugTable() {
+    const list = _debugAllWords;
+    const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+    if (_debugPage < 1) _debugPage = 1;
+    if (_debugPage > totalPages) _debugPage = totalPages;
+
+    const start = (_debugPage - 1) * PAGE_SIZE;
+    const pageData = list.slice(start, start + PAGE_SIZE);
+
+    let html = `
+        <button onclick="showCreateForm()" style="margin-bottom:10px;">+ Tạo mới</button>
+        <div style="margin-bottom:10px;">
+            <input id="searchWord" placeholder="Tìm theo word" oninput="filterDebugTable()" />
+            <input id="searchMean" placeholder="Tìm theo mean" oninput="filterDebugTable()" />
+        </div>
+        <div class="pagination" id="pagination-top">
+            ${buildPagination(totalPages)}
+        </div>
+        <div style="overflow-x:auto;">
+        <table id="debug-table" border=1 cellpadding=5 style="border-collapse:collapse; min-width:900px;">
+            <tr style="background:#eee;">
+                <th>Word</th>
+                <th>Type</th>
+                <th>Mean</th>
+                <th>Reading</th>
+                <th>Next Read</th>
+                <th>✅ Đúng</th>
+                <th>❌ Sai</th>
+                <th>Ngày tạo</th>
+                <th>Action</th>
+            </tr>
+    `;
+
+    pageData.forEach(w => {
+        html += `
+            <tr id="row-${w.key}" class="data-row"
+                data-word="${w.word}"
+                data-mean="${w.mean}">
+                <td>${w.word}</td>
+                <td>${w.type}</td>
+                <td>${w.mean}</td>
+                <td>${w.sum_point_reading}</td>
+                <td>${w.next_reading_time}</td>
+                <td style="text-align:center;">${w.correct_count ?? 0}</td>
+                <td style="text-align:center;">${w.wrong_count ?? 0}</td>
+                <td>${w.created_date || ''}</td>
+                <td>
+                    <button onclick="editWord('${w.key}')">Sửa</button>
+                    <button onclick="deleteWord('${w.key}')">Xóa</button>
+                </td>
+            </tr>
+        `;
+    });
+
+    html += `</table></div>
+        <div class="pagination" id="pagination-bottom">
+            ${buildPagination(totalPages)}
+        </div>
+    `;
+
+    document.getElementById("debug-output").innerHTML = html;
+}
+
+function buildPagination(totalPages) {
+    let html = '';
+    for (let i = 1; i <= totalPages; i++) {
+        const active = (i === _debugPage) ? 'class="active"' : '';
+        html += `<button ${active} onclick="goPage(${i})">${i}</button>`;
+    }
+    return html;
+}
+
+function goPage(page) {
+    _debugPage = page;
+    renderDebugTable();
 }
 
 function filterDebugTable() {
@@ -633,10 +738,13 @@ function saveNewWord() {
         word,
         type,
         mean,
-        sum_point_reading: 0,
+        sum_point_reading:  0,
         sum_point_speaking: 0,
-        next_reading_time: todayDate,
-        next_speaking_time: todayDate
+        next_reading_time:  todayDate,
+        next_speaking_time: todayDate,
+        created_date:       todayDate,
+        correct_count:      0,
+        wrong_count:        0
     };
 
     const tx = db.transaction("words", "readwrite");
@@ -659,13 +767,15 @@ function editWord(key) {
 
         const row = document.getElementById(`row-${key}`);
 
-        // form sửa – dùng name thay vì id (tránh trùng nhiều dòng)
         row.innerHTML = `
-            <td><input name="e_word_${key}" value="${w.word}"></td>
-            <td><input name="e_type_${key}" value="${w.type}"></td>
-            <td><input name="e_mean_${key}" value="${w.mean}"></td>
-            <td><input name="e_read_${key}" value="${w.sum_point_reading}"></td>
-            <td><input name="e_next_${key}" value="${w.next_reading_time}"></td>
+            <td style="min-width:120px;"><div style="overflow-x:auto;"><input name="e_word_${key}" value="${w.word}" style="min-width:100px;"></div></td>
+            <td><input name="e_type_${key}" value="${w.type}" style="width:70px;"></td>
+            <td style="min-width:180px;"><div style="overflow-x:auto;"><input name="e_mean_${key}" value="${w.mean}" style="min-width:160px;"></div></td>
+            <td><input name="e_read_${key}" value="${w.sum_point_reading}" style="width:70px;"></td>
+            <td><input name="e_next_${key}" value="${w.next_reading_time}" style="width:110px;"></td>
+            <td style="text-align:center;color:#888;">${w.correct_count ?? 0}</td>
+            <td style="text-align:center;color:#888;">${w.wrong_count ?? 0}</td>
+            <td style="color:#888;">${w.created_date || ''}</td>
             <td>
                 <button onclick="saveEdit('${key}')">Lưu</button>
                 <button onclick="debugShowAllWords()">Hủy</button>
@@ -695,33 +805,37 @@ function saveEdit(oldKey) {
 
     const newKey = `${word}|${type}|${mean}`;
 
-    const item = {
-        key: newKey,
-        word,
-        type,
-        mean,
-        sum_point_reading: read,
-        sum_point_speaking: 0,
-        next_reading_time: next,
-        next_speaking_time: next
-    };
+    // Lấy dữ liệu cũ để giữ lại correct_count, wrong_count, created_date
+    const txRead = db.transaction("words", "readonly");
+    txRead.objectStore("words").get(oldKey).onsuccess = function(e) {
+        const old = e.target.result || {};
 
-    const tx = db.transaction("words", "readwrite");
-    const store = tx.objectStore("words");
+        const item = {
+            key:                newKey,
+            word,
+            type,
+            mean,
+            sum_point_reading:  read,
+            sum_point_speaking: old.sum_point_speaking || 0,
+            next_reading_time:  next,
+            next_speaking_time: old.next_speaking_time || next,
+            created_date:       old.created_date  || today(),
+            correct_count:      old.correct_count ?? 0,
+            wrong_count:        old.wrong_count   ?? 0
+        };
 
-    // Nếu đổi key → delete cũ để tránh duplicate key
-    if (newKey !== oldKey) store.delete(oldKey);
+        const tx = db.transaction("words", "readwrite");
+        const store = tx.objectStore("words");
 
-    store.put(item);
+        if (newKey !== oldKey) store.delete(oldKey);
 
-    tx.oncomplete = () => {
-        alert("Đã lưu!");
+        store.put(item);
 
-        // Cập nhật lại danh sách học để không lệch dữ liệu
-        takeVocabulary();
-
-        // Refresh bảng debug
-        debugShowAllWords();
+        tx.oncomplete = () => {
+            alert("Đã lưu!");
+            takeVocabulary();
+            debugShowAllWords();
+        };
     };
 }
 
@@ -746,24 +860,9 @@ function deleteWord(key) {
 
 
 function deleteAllWords() {
-    if (!confirm("Bạn có chắc muốn xóa toàn bộ dữ liệu từ vựng? Hành động này không thể hoàn tác!")) {
-        return;
-    }
-
+    // Không cần xác nhận — dùng nội bộ
     const tx = db.transaction("words", "readwrite");
-    const store = tx.objectStore("words");
-
-    const clearReq = store.clear();
-
-    clearReq.onsuccess = function () {
-        alert("Đã xóa toàn bộ dữ liệu!");
-        takeVocabulary();      // load lại danh sách học
-        debugShowAllWords();   // reload bảng debug
-    };
-
-    clearReq.onerror = function () {
-        alert("Lỗi: Không thể xóa dữ liệu!");
-    };
+    tx.objectStore("words").clear();
 }
 </script>
 
