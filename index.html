@@ -210,32 +210,6 @@
     #word   { min-height: 50px; }
     #answer { font-size: 24px; min-height: 40px; }
 
-    /* ---- Suggest button (inline, small, top-right of word-row) ---- */
-    #suggestBtn {
-      padding: 6px 12px;
-      font-size: 16px;
-      border-radius: 20px;
-      border: 1.5px solid var(--border);
-      background: var(--bg);
-      color: var(--fg);
-      cursor: pointer;
-      min-width: unset;
-      align-self: flex-start;
-      opacity: 0.75;
-      touch-action: manipulation;
-    }
-    #suggestBtn:active { opacity: 0.4; }
-
-    /* ---- Suggest display (between word-row and answer) ---- */
-    #suggest-area {
-      font-size: 18px;
-      font-style: italic;
-      opacity: 0.85;
-      min-height: 0;
-      padding: 0 2px;
-      line-height: 1.5;
-    }
-    #suggest-area.loading { opacity: 0.5; }
 
     /* ---- Debug table ---- */
     .search-row {
@@ -351,16 +325,6 @@
       <input type="number" id="s_nx_threshold" step="1" min="1">
     </div>
 
-    <div class="settings-section-title">API — Suggest câu ví dụ (chọn 1 trong 2)</div>
-    <div class="setting-row">
-      <label>Gemini API Key<br><small style="font-size:15px;opacity:0.6"><a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com</a></small></label>
-      <input type="password" id="s_gemini_key" placeholder="AIza...">
-    </div>
-    <div class="setting-row">
-      <label>Groq API Key<br><small style="font-size:15px;opacity:0.6"><a href="https://console.groq.com/keys" target="_blank">console.groq.com</a> — free 14k req/ngày</small></label>
-      <input type="password" id="s_groq_key" placeholder="gsk_...">
-    </div>
-
     <button id="settingsSaveBtn" onclick="saveSettings()">💾 Lưu cài đặt</button>
   </div>
 </div>
@@ -387,8 +351,6 @@
 
   <div id="word"></div>
 
-  <!-- Suggest example sentence (between word and answer) -->
-  <div id="suggest-area"></div>
 
   <div id="answer"></div>
 
@@ -429,8 +391,7 @@ const DEFAULT_SETTINGS = {
   nx:           1.5,
   bonus_base:   1.5,
   bonus_div:    5.5,
-  nx_threshold: 45,
-  gemini_key:   ""
+  nx_threshold: 45
 };
 
 let cfg = { ...DEFAULT_SETTINGS };
@@ -448,7 +409,6 @@ function openSettings() {
   document.getElementById("s_bonus_base").value   = cfg.bonus_base;
   document.getElementById("s_bonus_div").value    = cfg.bonus_div;
   document.getElementById("s_nx_threshold").value = cfg.nx_threshold;
-  document.getElementById("s_gemini_key").value   = cfg.gemini_key || "";
   document.getElementById("settingsOverlay").classList.add("open");
 }
 
@@ -457,7 +417,6 @@ function saveSettings() {
   cfg.bonus_base   = Number(document.getElementById("s_bonus_base").value)   || DEFAULT_SETTINGS.bonus_base;
   cfg.bonus_div    = Number(document.getElementById("s_bonus_div").value)    || DEFAULT_SETTINGS.bonus_div;
   cfg.nx_threshold = Number(document.getElementById("s_nx_threshold").value) || DEFAULT_SETTINGS.nx_threshold;
-  cfg.gemini_key   = document.getElementById("s_gemini_key").value.trim();
 
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(cfg));
   document.getElementById("settingsOverlay").classList.remove("open");
@@ -729,19 +688,13 @@ let revealStep = 0;
 
 function showWord() {
   revealStep = 0;
-  setEl("suggest-area", ""); // reset suggest mỗi lần chuyển từ
+
   const w     = words[count];
   const color = w.status === 1 ? "green" : w.status === 0 ? "red" : "var(--fg)";
-
-  // Nút Suggest chỉ hiện khi status === -1 (chưa trả lời)
-  const suggestHtml = w.status === -1
-    ? `<button id="suggestBtn" onclick="suggestExample()">💡 Suggest</button>`
-    : "";
 
   setEl("word", `
     <div id="word-row">
       <div id="sentence" style="color:${color}">${w.word}</div>
-      ${suggestHtml}
       <button onclick="revealAnswer()">Answer</button>
     </div>
   `);
@@ -810,10 +763,6 @@ function mark(status) {
 
   const s = document.querySelector("#word-row #sentence");
   if (s) s.style.color = status === 1 ? "green" : "red";
-
-  // Ẩn nút Suggest khi đã trả lời
-  const sb = document.getElementById("suggestBtn");
-  if (sb) sb.remove();
 
   if (status === 1) nextWord();
 }
@@ -922,182 +871,7 @@ function saveVocabulary() {
     setWordCountBadge(0);
     setEl("word",   "");
     setEl("answer", "");
-    setEl("suggest-area", "");
   };
-}
-
-
-/* ============================================================
-   SUGGEST — thử Gemini trước, fallback sang Groq
-   - Gemini key: aistudio.google.com/app/apikey
-   - Groq key  : console.groq.com/keys  (free 14,400 req/ngày)
-   Cả 2 key lưu localStorage qua ⚙️ Cài đặt, không commit git
-============================================================ */
-
-const SUGGEST_PROMPT = (word, type) =>
-  `You are a vocabulary example sentence generator.
-STRICT OUTPUT RULES — no exceptions:
-1. Output ONE English sentence only.
-2. The sentence MUST use the given word naturally in context.
-3. Do NOT translate. Do NOT explain. Do NOT add any label, quote, or extra text.
-4. Output only the raw sentence string, nothing else.
-
-word: "${word}" (${type})`;
-
-/* --- Gemini: thử lần lượt các model còn free --- */
-async function tryGemini(prompt) {
-  const key = cfg.gemini_key;
-  if (!key) return { ok: false, reason: "no_key" };
-
-  const MODELS = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.0-flash-lite"];
-
-  for (const model of MODELS) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
-      const res  = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 80, temperature: 0.7 }
-        })
-      });
-
-      const data = await res.json();
-      console.log(`Gemini [${model}]:`, data);
-
-      if (!res.ok) {
-        const msg = data?.error?.message || "";
-        const retryMatch = msg.match(/retry in ([0-9.]+)s/i);
-        const retrySec   = retryMatch ? Math.ceil(parseFloat(retryMatch[1])) : null;
-        // model không tìm thấy → thử model tiếp
-        if (msg.includes("not found") || msg.includes("not supported")) continue;
-        // quota hết → thử model tiếp, ghi lại retrySec để dùng nếu hết tất cả
-        if (model === MODELS[MODELS.length - 1]) return { ok: false, reason: "quota", retrySec };
-        continue;
-      }
-
-      const sentence = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
-      if (sentence) return { ok: true, sentence };
-
-      const reason = data?.candidates?.[0]?.finishReason || "NO_TEXT";
-      if (model === MODELS[MODELS.length - 1]) return { ok: false, reason };
-    } catch (err) {
-      console.error(`Gemini [${model}] error:`, err);
-      if (model === MODELS[MODELS.length - 1]) return { ok: false, reason: err.message };
-    }
-  }
-  return { ok: false, reason: "all_models_failed" };
-}
-
-/* --- Groq: llama-3.1-8b-instant --- */
-async function tryGroq(prompt) {
-  const key = cfg.groq_key;
-  if (!key) return { ok: false, reason: "no_key" };
-
-  try {
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${key}`
-      },
-      body: JSON.stringify({
-        model: "llama-3.1-8b-instant",
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 80,
-        temperature: 0.7
-      })
-    });
-
-    const data = await res.json();
-    console.log("Groq raw:", data);
-
-    if (!res.ok) {
-      return { ok: false, reason: data?.error?.message || `HTTP ${res.status}` };
-    }
-
-    const sentence = data?.choices?.[0]?.message?.content?.trim() || "";
-    if (sentence) return { ok: true, sentence };
-    return { ok: false, reason: "NO_TEXT" };
-  } catch (err) {
-    console.error("Groq error:", err);
-    return { ok: false, reason: err.message };
-  }
-}
-
-/* --- Main suggest: Gemini → Groq --- */
-async function suggestExample() {
-  if (!cfg.gemini_key && !cfg.groq_key) {
-    alert("Chưa nhập API key!\nVào ⚙️ Cài đặt → nhập Gemini hoặc Groq API Key.");
-    return;
-  }
-
-  const w = words[count];
-  if (!w) return;
-
-  const suggestArea = document.getElementById("suggest-area");
-  if (!suggestArea) return;
-
-  const btn = document.getElementById("suggestBtn");
-  if (btn) btn.disabled = true;
-
-  suggestArea.className = "loading";
-  suggestArea.textContent = "⏳ Đang tạo câu ví dụ...";
-
-  const prompt = SUGGEST_PROMPT(w.word, w.type);
-
-  // Thử Gemini trước (nếu có key)
-  if (cfg.gemini_key) {
-    const r = await tryGemini(prompt);
-    if (r.ok) {
-      suggestArea.className = "";
-      suggestArea.textContent = `💬 ${r.sentence}`;
-      return;
-    }
-    if (r.reason === "quota" && !cfg.groq_key) {
-      // Không có Groq → countdown rồi retry
-      startCountdown(suggestArea, btn, r.retrySec || 60);
-      return;
-    }
-    // Có Groq → fallback
-    if (cfg.groq_key) {
-      suggestArea.textContent = "⏳ Gemini hết quota, thử Groq...";
-    }
-  }
-
-  // Thử Groq
-  if (cfg.groq_key) {
-    const r = await tryGroq(prompt);
-    if (r.ok) {
-      suggestArea.className = "";
-      suggestArea.textContent = `💬 ${r.sentence}`;
-      return;
-    }
-    suggestArea.className = "";
-    suggestArea.textContent = `❌ Groq: ${r.reason}`;
-    return;
-  }
-
-  suggestArea.className = "";
-  suggestArea.textContent = "❌ Không lấy được câu ví dụ.";
-}
-
-/* Đếm ngược rồi tự retry */
-function startCountdown(suggestArea, btn, seconds) {
-  let remaining = seconds;
-  function tick() {
-    suggestArea.className = "loading";
-    suggestArea.textContent = `⏳ Hết quota — thử lại sau ${remaining}s...`;
-    if (remaining <= 0) {
-      if (btn) btn.disabled = false;
-      suggestExample();
-      return;
-    }
-    remaining--;
-    setTimeout(tick, 1000);
-  }
-  tick();
 }
 
 
