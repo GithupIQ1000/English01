@@ -520,6 +520,9 @@ function setWordCountBadge(n) {
 
 /* ============================================================
    IMPORT JSON  — Task 1: fix race condition, thêm fields mới
+   Hỗ trợ 2 cấu trúc JSON:
+     Cấu trúc 1 (MySQL dump): [{type:"table", name:"words", data:[...]}, ...]
+     Cấu trúc 2 (export app):  [{word, type, mean, sum_point_reading, ...}, ...]
 ============================================================ */
 function importJSON() {
   const file = document.getElementById("jsonFile").files[0];
@@ -528,24 +531,42 @@ function importJSON() {
   const reader = new FileReader();
   reader.onload = e => {
     try {
-      const data     = JSON.parse(e.target.result);
-      const tableObj = data.find(item => item.type === "table" && item.name === "words");
-      if (!tableObj) return alert("Không tìm thấy bảng words!");
-      saveWords(tableObj.data);
+      const data = JSON.parse(e.target.result);
+
+      // --- Cấu trúc 1: MySQL dump ---
+      let rawWords = null;
+      if (Array.isArray(data)) {
+        const tableObj = data.find(item => item.type === "table" && item.name === "words");
+        if (tableObj && Array.isArray(tableObj.data)) {
+          rawWords = tableObj.data;
+        }
+      }
+
+      // --- Cấu trúc 2: export của app (mảng object có trường word/type/mean) ---
+      if (!rawWords) {
+        if (Array.isArray(data) && data.length > 0 && data[0].word && data[0].type && data[0].mean) {
+          rawWords = data;
+        }
+      }
+
+      if (!rawWords) return alert("Không tìm thấy bảng words!");
+
+      saveWords(rawWords);
     } catch { alert("JSON lỗi!"); }
   };
   reader.readAsText(file);
 }
 
-/* ---- saveWords: fix lỗi 1 (deleteAllWords không cần confirm) + lỗi 2 (race condition) ---- */
+/* ---- saveWords: có confirm xóa dữ liệu cũ + fix race condition ---- */
 function saveWords(rawWords) {
-  exportJSON(); // backup trước
-  deleteAllWords();
-  // Lọc trước, xây map key→record
+  exportJSON(); // backup trước khi xóa
+
+  // Lọc & xây map key→record
+  // Cấu trúc 1 lọc theo host="Long", cấu trúc 2 không có host nên giữ tất cả
   const todayStr = today();
   const incoming = {};
   rawWords.forEach(w => {
-    if (w.host !== "Long") return;
+    if (w.host && w.host !== "Long") return; // bỏ qua host khác nếu có
     const key = `${w.word}|${w.type}|${w.mean}`;
     incoming[key] = {
       key,
@@ -554,20 +575,22 @@ function saveWords(rawWords) {
       mean:              w.mean,
       sum_point_reading: Number(w.sum_point_reading || 0),
       next_reading_time: w.next_reading_time || todayStr,
-      created_date:      w.created_date      || todayStr,   // Task 1: ngày tạo
-      correct_count:     Number(w.correct_count  || 0),    // Task 1: số lần đúng
-      wrong_count:       Number(w.wrong_count    || 0)     // Task 1: số lần sai
+      created_date:      w.created_date      || todayStr,
+      correct_count:     Number(w.correct_count  || 0),
+      wrong_count:       Number(w.wrong_count    || 0)
     };
   });
 
   const keys = Object.keys(incoming);
-  if (!keys.length) return alert("Không có từ nào của Long!");
+  if (!keys.length) return alert("Không có từ nào hợp lệ trong file!");
 
-  // Xóa toàn bộ trước (không cần confirm — đã backup ở trên)
+  // Hỏi xác nhận trước khi xóa dữ liệu cũ
+  if (!confirm(`Xóa toàn bộ dữ liệu cũ và nhập ${keys.length} từ mới?\n(Đã tự động backup trước khi xóa)`)) return;
+
   const clearTx = db.transaction("words", "readwrite");
   clearTx.objectStore("words").clear();
   clearTx.oncomplete = () => {
-    // Sau khi xóa xong mới bắt đầu insert — một transaction mới
+    // Xóa xong mới insert — transaction mới hoàn toàn
     insertAllWords(keys, incoming);
   };
   clearTx.onerror = e => {
