@@ -749,12 +749,31 @@ function debugShowAll() {
     _currentPage = 1;
     _filterWord  = "";
     _filterMean  = "";
-    renderDebugTable();
+
+    // Render khung ngoài (btn + search + div#table-results) CHỈ 1 LẦN
+    // Sau đó filterTable/goPage chỉ cập nhật #table-results bên trong
+    setEl("debug-output", `
+      <div class="btn-row">
+        <button onclick="showCreateForm()">+ Tạo mới</button>
+      </div>
+      <div class="search-row">
+        <input id="searchWord" placeholder="Tìm word" oninput="filterTable()">
+        <input id="searchMean" placeholder="Tìm mean" oninput="filterTable()">
+      </div>
+      <div id="table-results"></div>
+    `);
+
+    renderTableResults();
   };
 }
 
+// Chỉ render phần table + pagination vào #table-results — KHÔNG đụng search input
 function renderDebugTable() {
-  _keyMap = [];  // reset đúng 1 lần duy nhất tại đây, trước khi build bảng
+  renderTableResults();
+}
+
+function renderTableResults() {
+  _keyMap = [];
 
   const total      = _filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -764,13 +783,6 @@ function renderDebugTable() {
   const slice = _filtered.slice(start, start + PAGE_SIZE);
 
   let html = `
-    <div class="btn-row">
-      <button onclick="showCreateForm()">+ Tạo mới</button>
-    </div>
-    <div class="search-row">
-      <input id="searchWord" placeholder="Tìm word" oninput="filterTable()">
-      <input id="searchMean" placeholder="Tìm mean" oninput="filterTable()">
-    </div>
     <div id="table-wrap">
       <table id="debug-table">
         <tr>
@@ -780,7 +792,6 @@ function renderDebugTable() {
   `;
 
   slice.forEach(w => {
-    // FIX: dùng idx số nguyên thay vì nhúng key trực tiếp vào onclick
     const idx = keyIndex(w.key);
     html += `
       <tr id="row-idx-${idx}" class="data-row" data-word="${w.word.replace(/"/g,'&quot;')}" data-mean="${w.mean.replace(/"/g,'&quot;')}">
@@ -802,7 +813,6 @@ function renderDebugTable() {
 
   html += `</table></div>`;
 
-  // Pagination
   html += `<div id="pagination">`;
   for (let i = 1; i <= totalPages; i++) {
     html += `<button class="${i === _currentPage ? 'active' : ''}" onclick="goPage(${i})">${i}</button>`;
@@ -810,10 +820,7 @@ function renderDebugTable() {
   html += `</div>`;
   html += `<div id="page-info">Trang ${_currentPage}/${totalPages} — Tổng ${total} từ</div>`;
 
-  setEl("debug-output", html);
-
-  if (_filterWord) document.getElementById("searchWord").value = _filterWord;
-  if (_filterMean) document.getElementById("searchMean").value = _filterMean;
+  setEl("table-results", html);
 }
 
 function filterTable() {
@@ -824,12 +831,12 @@ function filterTable() {
     w.mean.toLowerCase().includes(_filterMean)
   );
   _currentPage = 1;
-  renderDebugTable();
+  renderTableResults();
 }
 
 function goPage(n) {
   _currentPage = n;
-  renderDebugTable();
+  renderTableResults();
 }
 
 /* ============================================================
