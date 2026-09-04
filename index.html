@@ -819,7 +819,7 @@ function closeSettingsIfOutside(e) {
    INDEXEDDB
 ============================================================ */
 let db;
-const dbReq = indexedDB.open("MyDB", 1);
+const dbReq = indexedDB.open("MyDB中文", 1);
 
 dbReq.onupgradeneeded = e => {
   const d = e.target.result;
