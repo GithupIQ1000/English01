@@ -930,7 +930,6 @@ function renderAchievement(){
   c.textContent=dailyState.checkedKeys.length; d.textContent=todayDueCount; a.textContent=today();
   if(yesterdayDueCount===null){delta.textContent='—';note.textContent='';note.style.display='none';return;}
   note.style.display='block'; const diff=todayDueCount-yesterdayDueCount; delta.textContent=diff>0?`+${diff}`:String(diff);
-  note.textContent=diff>0?`Hôm nay có thêm ${diff} từ cần kiểm tra so với hôm qua.`:diff<0?`Hôm nay có ít hơn ${Math.abs(diff)} từ cần kiểm tra so với hôm qua.`:'Số từ cần kiểm tra hôm nay không đổi so với hôm qua.';
 }
 function checkDailyRollover(){ if(dailyState.date!==today()){dailyState={date:today(),checkedKeys:[]};saveDailyState();yesterdayDueCount=null;todayDueCount=0;takeVocabulary();} }
 
