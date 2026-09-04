@@ -612,7 +612,26 @@
     @media (max-width: 440px) {
       body { font-size: 18px; }
       .app-wrap { padding-left: 10px; padding-right: 10px; }
-      .achievement-grid { grid-template-columns: 1fr; }
+
+      /* 3 ô thành tích luôn giữ đúng 1 hàng ngang trên mobile */
+      .achievement-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+      }
+      .stat-box {
+        min-width: 0;
+        padding: 9px 4px;
+      }
+      .stat-label {
+        font-size: 10.5px;
+        line-height: 1.2;
+        min-height: 2.4em;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .stat-value { font-size: 19px; }
+
       .achievement-head { align-items: flex-start; flex-direction: column; }
       #word-row { gap: 9px; }
       #word-row > button { min-width: 82px; padding-left: 13px; padding-right: 13px; }
@@ -1274,9 +1293,10 @@
       getStore("readonly").getAll().onsuccess = e => {
         const todayDate = today();
 
-        words = e.target.result.filter(w =>
-          todayDate >= (w.next_reading_time || todayDate)
-        );
+        words = e.target.result.filter(w => {
+          const nextDate = String(w.next_reading_time || todayDate).slice(0, 10);
+          return todayDate >= nextDate;
+        });
 
         // GIỮ NGUYÊN: từ có điểm thấp nhất xuất hiện trước.
         words.sort((a, b) => Number(a.sum_point_reading) - Number(b.sum_point_reading));
@@ -1798,7 +1818,10 @@
           await finish();
         }
 
-        debugShowAll();
+        // Quan trọng: nạp lại danh sách học ngay sau khi tạo từ.
+        // Bản 1 làm bước này trực tiếp trong tx.oncomplete.
+        takeVocabulary();
+        if (debugVisible) debugShowAll();
         closeMenu();
       } catch (err) {
         alert(err?.message || "Không thể tạo từ!");
