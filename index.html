@@ -704,7 +704,7 @@
       <div class="menu-actions">
         <button type="button" onclick="importJSON(); closeMenu()">Nhập dữ liệu</button>
         <button type="button" onclick="exportJSON(); closeMenu()">Xuất JSON</button>
-        <button type="button" onclick="toggleDebug(); closeMenu()">Show DS</button>
+        <button id="btnToggleDebug" type="button" onclick="toggleDebug(); closeMenu()">Show DS</button>
         <button type="button" onclick="deleteAllWords(); closeMenu()">Xóa toàn bộ</button>
       </div>
       <div class="menu-note">Giao diện và bố cục lấy theo bản 2; toàn bộ logic học/điểm vẫn theo index.html.</div>
@@ -1299,9 +1299,10 @@ let debugVisible = false;
 
 function toggleDebug() {
   debugVisible = !debugVisible;
-  document.getElementById("btnToggleDebug").textContent = debugVisible ? "Hide DS" : "Show DS";
+  const btn = document.getElementById("btnToggleDebug");
+  if (btn) btn.textContent = debugVisible ? "Hide DS" : "Show DS";
   if (debugVisible) debugShowAll();
-  else              setEl("debug-output", "");
+  else setEl("debug-output", "");
 }
 
 /* ============================================================
@@ -1447,7 +1448,19 @@ function saveNewWord() {
     wrong_count:       0
   });
 
-  tx.oncomplete = () => { alert("Đã tạo từ!"); takeVocabulary(); debugShowAll(); };
+  tx.oncomplete = () => {
+    alert("Đã tạo từ!");
+    takeVocabulary();
+    debugShowAll();
+  };
+  tx.onerror = e => {
+    if (e.target?.error?.name === "ConstraintError") {
+      alert("Từ này đã tồn tại (trùng Word + Type + Mean)!");
+    } else {
+      console.error(e.target?.error);
+      alert("Không thể tạo từ!");
+    }
+  };
 }
 
 /* ============================================================
@@ -1498,7 +1511,8 @@ function saveEdit(idx) {
   const read    = Number(g(`ew_read_${idx}`).value.trim());
   const next    = g(`ew_next_${idx}`).value.trim();
 
-  if (!word || !type || !mean)            return alert("Thiếu dữ liệu!");
+  if (!word || !type || !mean)              return alert("Thiếu dữ liệu!");
+  if (!Number.isFinite(read) || read < 0)  return alert("Point không hợp lệ!");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(next)) return alert("Ngày phải theo định dạng YYYY-MM-DD");
 
   getStore("readonly").get(oldKey).onsuccess = e => {
@@ -1517,8 +1531,26 @@ function saveEdit(idx) {
     const tx    = db.transaction("words", "readwrite");
     const store = tx.objectStore("words");
     if (newKey !== oldKey) store.delete(oldKey);
-    store.put(item);
-    tx.oncomplete = () => { alert("Đã lưu!"); takeVocabulary(); debugShowAll(); };
+    try {
+      store.put(item);
+    } catch (err) {
+      console.error(err);
+      alert("Không thể lưu từ!");
+      return;
+    }
+    tx.oncomplete = () => {
+      alert("Đã lưu!");
+      takeVocabulary();
+      debugShowAll();
+    };
+    tx.onerror = e => {
+      if (e.target?.error?.name === "ConstraintError") {
+        alert("Không thể lưu: Word + Type + Mean bị trùng!");
+      } else {
+        console.error(e.target?.error);
+        alert("Không thể lưu từ!");
+      }
+    };
   };
 }
 
@@ -1532,8 +1564,15 @@ function deleteWord(idx) {
 
   const tx = db.transaction("words", "readwrite");
   tx.objectStore("words").delete(key);
-  tx.oncomplete = () => { alert("Đã xóa!"); takeVocabulary(); debugShowAll(); };
-  tx.onerror    = () => alert("Không thể xóa!");
+  tx.oncomplete = () => {
+    alert("Đã xóa!");
+    takeVocabulary();
+    debugShowAll();
+  };
+  tx.onerror = e => {
+    console.error(e.target?.error);
+    alert("Không thể xóa!");
+  };
 }
 
 function clearAllWords(callback) {
