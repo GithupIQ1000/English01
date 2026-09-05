@@ -756,9 +756,14 @@
 <script>
 
 /* ============================================================
-   THEME
+   DATABASE / STORAGE NAMESPACE
+   - This page is isolated from other language pages.
+   - Chinese page: MyDB中文
+   - English page can use: MyDB_English
 ============================================================ */
-const THEME_KEY = "vocab_theme";
+const DB_NAME = "MyDB中文";
+const STORAGE_NS = DB_NAME + ":";
+const THEME_KEY = STORAGE_NS + "vocab_theme";
 let isDark = true;
 function applyTheme(dark){ isDark=!!dark; document.body.classList.toggle('dark',isDark); const b=document.getElementById('themeBtn'); if(b)b.textContent=isDark?'☀️':'🌙'; }
 function loadTheme(){ applyTheme(localStorage.getItem(THEME_KEY)!=='light'); }
@@ -781,7 +786,7 @@ if (jsonFileEl) jsonFileEl.addEventListener("change", () => {
 /* ============================================================
    SETTINGS
 ============================================================ */
-const SETTINGS_KEY     = "vocab_settings";
+const SETTINGS_KEY     = STORAGE_NS + "vocab_settings";
 const DEFAULT_SETTINGS = { nx: 1.5, bonus_base: 1.5, bonus_div: 5.5, nx_threshold: 45 };
 let cfg = { ...DEFAULT_SETTINGS };
 
@@ -819,7 +824,7 @@ function closeSettingsIfOutside(e) {
    INDEXEDDB
 ============================================================ */
 let db;
-const dbReq = indexedDB.open("MyDB中文", 1);
+const dbReq = indexedDB.open(DB_NAME, 1);
 
 dbReq.onupgradeneeded = e => {
   const d = e.target.result;
@@ -886,8 +891,8 @@ function keyByIndex(i) { return _keyMap[i]; }
    DAILY ACHIEVEMENT — chỉ thêm phần thống kê, không thay đổi
    logic học/điểm/lịch ôn của index.html
 ============================================================ */
-const DAILY_KEY = "vocab_daily_state";
-const DUE_SNAPSHOT_KEY = "vocab_due_snapshot";
+const DAILY_KEY = STORAGE_NS + "vocab_daily_state";
+const DUE_SNAPSHOT_KEY = STORAGE_NS + "vocab_due_snapshot";
 let dailyState = { date: today(), checkedKeys: [] };
 let yesterdayDueCount = null;
 let todayDueCount = 0;
@@ -930,6 +935,7 @@ function renderAchievement(){
   c.textContent=dailyState.checkedKeys.length; d.textContent=todayDueCount; a.textContent=today();
   if(yesterdayDueCount===null){delta.textContent='—';note.textContent='';note.style.display='none';return;}
   note.style.display='block'; const diff=todayDueCount-yesterdayDueCount; delta.textContent=diff>0?`+${diff}`:String(diff);
+  note.textContent=diff>0?`Hôm nay có thêm ${diff} từ cần kiểm tra so với hôm qua.`:diff<0?`Hôm nay có ít hơn ${Math.abs(diff)} từ cần kiểm tra so với hôm qua.`:'Số từ cần kiểm tra hôm nay không đổi so với hôm qua.';
 }
 function checkDailyRollover(){ if(dailyState.date!==today()){dailyState={date:today(),checkedKeys:[]};saveDailyState();yesterdayDueCount=null;todayDueCount=0;takeVocabulary();} }
 
@@ -1531,13 +1537,15 @@ function deleteWord(idx) {
 }
 
 function clearAllWords(callback) {
+  // IMPORTANT: this only clears the `words` store inside DB_NAME (MyDB中文).
+  // It cannot affect MyDB_English or any other IndexedDB database.
   const tx = db.transaction("words", "readwrite");
   tx.objectStore("words").clear();
   tx.oncomplete = () => { if (callback) callback(); };
 }
 
 function deleteAllWords() {
-  if (!confirm("Xóa toàn bộ dữ liệu? Không thể hoàn tác!")) return;
+  if (!confirm("Xóa toàn bộ dữ liệu của MyDB中文? Không thể hoàn tác!")) return;
   clearAllWords(() => {
     alert("Đã xóa toàn bộ!");
     takeVocabulary();
