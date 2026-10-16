@@ -140,13 +140,13 @@
     }
 
     /* ============================================================
-       DAILY ACHIEVEMENT
+       DAILY ACHIEVEMENT — compact
     ============================================================ */
     #achievement-card {
-      margin: 14px 0 16px;
-      padding: 15px;
-      border: 2px solid var(--border);
-      border-radius: 14px;
+      margin: 10px 0 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--input-border);
+      border-radius: 10px;
       background: var(--panel);
     }
 
@@ -154,53 +154,53 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 12px;
+      gap: 8px;
+      margin-bottom: 8px;
     }
 
     .achievement-title {
       font-weight: 800;
-      font-size: 21px;
+      font-size: 16px;
     }
 
     .achievement-date {
       color: var(--muted);
-      font-size: 14px;
+      font-size: 12px;
       white-space: nowrap;
     }
 
     .achievement-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0;
     }
 
     .stat-box {
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px 8px;
+      min-width: 0;
+      padding: 0 8px;
       text-align: center;
-      background: var(--panel-2);
+      background: transparent;
+    }
+
+    .stat-box + .stat-box {
+      border-left: 1px solid var(--input-border);
     }
 
     .stat-label {
       display: block;
       color: var(--muted);
-      font-size: 13px;
-      margin-bottom: 3px;
+      font-size: 12px;
+      line-height: 1.2;
+      margin-bottom: 2px;
+      overflow-wrap: anywhere;
     }
 
     .stat-value {
       display: block;
-      font-size: 22px;
+      font-size: 18px;
+      line-height: 1.2;
       font-weight: 800;
-    }
-
-    .achievement-note {
-      margin-top: 10px;
-      min-height: 22px;
-      color: var(--muted);
-      font-size: 15px;
+      overflow-wrap: anywhere;
     }
 
     /* ============================================================
@@ -630,26 +630,14 @@
       body { font-size: 18px; }
       .app-wrap { padding-left: 10px; padding-right: 10px; }
 
-      /* 3 ô thành tích luôn giữ đúng 1 hàng ngang trên mobile */
-      .achievement-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 6px;
-      }
-      .stat-box {
-        min-width: 0;
-        padding: 9px 4px;
-      }
-      .stat-label {
-        font-size: 10.5px;
-        line-height: 1.2;
-        min-height: 2.4em;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .stat-value { font-size: 19px; }
-
-      .achievement-head { align-items: flex-start; flex-direction: column; }
+      /* Thành tích vẫn gọn trên một hàng ở màn hình nhỏ */
+      .achievement-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .stat-box { padding: 0 5px; }
+      .stat-label { font-size: 10.5px; line-height: 1.2; }
+      .stat-value { font-size: 17px; }
+      .achievement-head { align-items: center; flex-direction: row; }
+      .achievement-title { font-size: 15px; }
+      .achievement-date { font-size: 11px; }
       #word-row {
         grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr);
         column-gap: 6px;
@@ -672,18 +660,7 @@
       table { font-size: 17px; }
       .search-row input { font-size: 19px; }
     }
-  
-    /* Thành tích hôm nay: luôn 3 ô trên một hàng, kể cả mobile */
-    .achievement-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
-    .stat-box { min-width: 0; padding: 10px 5px; }
-    .stat-label, .stat-value { overflow-wrap: anywhere; }
-    @media (max-width: 440px) {
-      .achievement-title { font-size: 18px; }
-      .achievement-date { font-size: 12px; }
-      .stat-label { font-size: 11px; }
-      .stat-value { font-size: 18px; }
-      .achievement-card { min-width: 0; }
-    }
+
   </style></head>
 <body class="dark">
   <button id="menuBtn" type="button" onclick="toggleMenu()" aria-label="Mở menu" title="Menu">☰</button>
@@ -738,7 +715,6 @@
         <div class="stat-box"><span class="stat-label">Cần kiểm tra</span><span id="stat-due" class="stat-value">0</span></div>
         <div class="stat-box"><span class="stat-label">So với hôm qua</span><span id="stat-delta" class="stat-value">—</span></div>
       </div>
-      <div id="achievement-note" class="achievement-note" aria-live="polite"></div>
     </section>
     <hr>
 
@@ -930,12 +906,24 @@ function ensureTodayDueSnapshot(n){
 }
 function markDailyChecked(w){ const key=w.key || `${w.word}|${w.type}|${w.mean}`; if(!dailyState.checkedKeys.includes(key)){dailyState.checkedKeys.push(key);saveDailyState();} renderAchievement(); }
 function renderAchievement(){
-  const a=document.getElementById('achievement-date'),c=document.getElementById('stat-checked'),d=document.getElementById('stat-due'),delta=document.getElementById('stat-delta'),note=document.getElementById('achievement-note');
-  if(!a||!c||!d||!delta||!note)return;
-  c.textContent=dailyState.checkedKeys.length; d.textContent=todayDueCount; a.textContent=today();
-  if(yesterdayDueCount===null){delta.textContent='—';note.textContent='';note.style.display='none';return;}
-  note.style.display='block'; const diff=todayDueCount-yesterdayDueCount; delta.textContent=diff>0?`+${diff}`:String(diff);
-  note.textContent=diff>0?`Hôm nay có thêm ${diff} từ cần kiểm tra so với hôm qua.`:diff<0?`Hôm nay có ít hơn ${Math.abs(diff)} từ cần kiểm tra so với hôm qua.`:'Số từ cần kiểm tra hôm nay không đổi so với hôm qua.';
+  const a = document.getElementById('achievement-date');
+  const c = document.getElementById('stat-checked');
+  const d = document.getElementById('stat-due');
+  const delta = document.getElementById('stat-delta');
+  if (!a || !c || !d || !delta) return;
+
+  c.textContent = dailyState.checkedKeys.length;
+  d.textContent = todayDueCount;
+  const date = today();
+  a.textContent = `${date.slice(8, 10)}/${date.slice(5, 7)}`;
+
+  if (yesterdayDueCount === null) {
+    delta.textContent = '—';
+    return;
+  }
+
+  const diff = todayDueCount - yesterdayDueCount;
+  delta.textContent = diff > 0 ? `+${diff}` : String(diff);
 }
 function checkDailyRollover(){ if(dailyState.date!==today()){dailyState={date:today(),checkedKeys:[]};saveDailyState();yesterdayDueCount=null;todayDueCount=0;takeVocabulary();} }
 
@@ -1245,7 +1233,11 @@ function saveVocabulary() {
       );
   
       if (diffDay > 1) {
-        point += diffDay;
+        if (diffDay <= 60){
+            point += diffDay;
+        } else {
+            point += Math.round(diffDay / 2);
+        }
       }
       newDate.setDate(newDate.getDate() + Math.round(point));
     } else {
